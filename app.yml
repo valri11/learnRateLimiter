@@ -1,0 +1,5 @@
+
+server:
+  port: 6090
+  disableTLS: true
+  globalReqRateLimitPerSec: 50
