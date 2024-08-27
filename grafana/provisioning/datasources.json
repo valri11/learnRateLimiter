@@ -1,0 +1,39 @@
+[
+  {
+    "id": 2,
+    "uid": "bdvutq82to7b4c",
+    "orgId": 1,
+    "name": "prometheus",
+    "type": "prometheus",
+    "typeName": "Prometheus",
+    "typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg",
+    "access": "proxy",
+    "url": "http://mimir:9009/prometheus",
+    "user": "",
+    "database": "",
+    "basicAuth": false,
+    "isDefault": false,
+    "jsonData": {
+      "httpMethod": "POST",
+      "manageAlerts": false
+    },
+    "readOnly": false
+  },
+  {
+    "id": 1,
+    "uid": "edvutmmt4cc1se",
+    "orgId": 1,
+    "name": "tempo",
+    "type": "tempo",
+    "typeName": "Tempo",
+    "typeLogoUrl": "public/app/plugins/datasource/tempo/img/tempo_logo.svg",
+    "access": "proxy",
+    "url": "http://tempo:3200/",
+    "user": "",
+    "database": "",
+    "basicAuth": false,
+    "isDefault": true,
+    "jsonData": {},
+    "readOnly": false
+  }
+]

@@ -10,8 +10,8 @@ export const options = {
   scenarios: {
     contacts: {
       executor: 'constant-arrival-rate',
-      duration: '20s',
-      rate: 50,
+      duration: '30s',
+      rate: 1520,
       timeUnit: '1s',
 
       // Pre-allocate necessary VUs.
@@ -34,10 +34,22 @@ export default function testSuite() {
     check(response, {
         'is status 200': (r) => r.status == 200,
         'is status 429 (rate limited)': (r) => r.status == 429,
+        'is status 503 (rate limited)': (r) => r.status == 503,
     });
 
     expect(response.status, 'response status').to.equal(200);
     expect(response).to.have.validJsonBody();
     //console.log(response.json());
+
+    const responses = http.batch([
+        ['GET', url],
+        ['GET', url],
+        ['GET', url],
+        ['GET', url],
+        ['GET', url],
+    ]);
+    check(responses[0], {
+        'status was 200': (res) => res.status === 200,
+    });
   });
 }

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/justinas/alice"
@@ -18,6 +17,7 @@ import (
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -28,6 +28,7 @@ import (
 
 	"github.com/valri11/learnRateLimiter/config"
 	appmetrics "github.com/valri11/learnRateLimiter/metrics"
+	"github.com/valri11/learnRateLimiter/ratelimit"
 )
 
 const (
@@ -51,6 +52,7 @@ type srvHandler struct {
 	cfg     config.Configuration
 	tracer  trace.Tracer
 	metrics *appmetrics.AppMetrics
+	meter   metric.Meter
 }
 
 func init() {
@@ -86,6 +88,7 @@ func newWebSrvHandler(cfg config.Configuration) (*srvHandler, error) {
 	srv := srvHandler{
 		cfg:     cfg,
 		tracer:  tracer,
+		meter:   meter,
 		metrics: metrics,
 	}
 
@@ -118,47 +121,6 @@ func WithOtelTracerContext(tracer trace.Tracer) func(http.Handler) http.Handler 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := telemetry.NewContextWithTracer(r.Context(), tracer)
 			r = r.WithContext(ctx)
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-type FixedWindowLimit struct {
-	Timestamp int64
-	Limit     int32
-	Counter   int32
-}
-
-func WithGlobalRequestRateLimiter(rateLimitPerSec int32) func(http.Handler) http.Handler {
-	currentRateLimit := FixedWindowLimit{
-		Timestamp: time.Now().Unix(),
-		Limit:     rateLimitPerSec,
-	}
-	var mx sync.Mutex
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			func() {
-				mx.Lock()
-				defer mx.Unlock()
-
-				tsNowSeconds := time.Now().Unix()
-
-				if tsNowSeconds == currentRateLimit.Timestamp {
-					if currentRateLimit.Counter >= currentRateLimit.Limit {
-						logger := mdlogger.FromContext(r.Context())
-						logger.Warn("request rate limited")
-
-						w.WriteHeader(http.StatusTooManyRequests)
-						return
-					}
-					currentRateLimit.Counter++
-				} else {
-					currentRateLimit.Timestamp = tsNowSeconds
-					currentRateLimit.Counter = 1
-				}
-			}()
 
 			next.ServeHTTP(w, r)
 		})
@@ -213,7 +175,10 @@ func doServerCmd(cmd *cobra.Command, args []string) {
 		cors.CORS,
 		appmetrics.WithMetrics(h.metrics),
 		WithOtelTracerContext(h.tracer),
-		WithGlobalRequestRateLimiter(int32(cfg.Server.GlobalReqRateLimitPerSec)),
+		ratelimit.WithGlobalRequestRateLimiter(
+			cfg.Server.RateLimits.Store,
+			int32(cfg.Server.RateLimits.GlobalReqRateLimitPerSec)),
+		ratelimit.WithConcurrentRequestRateLimiter(h.meter, int32(cfg.Server.RateLimits.ServiceConcurrentRequestAllowance)),
 	}
 	handlerChain := alice.New(mwChain...).Then
 

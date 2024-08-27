@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	metricsApi "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -80,6 +81,10 @@ func (w *CustomResponseWriter) Header() http.Header {
 
 func (w *CustomResponseWriter) WriteHeader(statusCode int) {
 	// receive status code from this method
+	if w.StatusCode != 0 {
+		// status code already set by some handler
+		return
+	}
 	w.StatusCode = statusCode
 	w.responseWriter.WriteHeader(statusCode)
 }
@@ -103,7 +108,9 @@ func WithMetrics(metrics *AppMetrics) func(http.Handler) http.Handler {
 			ew.Done()
 
 			if ew.StatusCode >= http.StatusBadRequest {
-				metrics.ErrCounter.Add(ctx, 1)
+				metrics.ErrCounter.Add(ctx, 1,
+					metricsApi.WithAttributes(
+						attribute.Int("status", ew.StatusCode)))
 			}
 
 			elapsedTime := float64(time.Since(requestStartTime)) / float64(time.Millisecond)

@@ -1,0 +1,53 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+otelcol.exporter.otlp "default" {
+  client {
+    endpoint = "tempo:4317"
+    tls {
+        insecure = true
+    }
+  }
+}
+
+otelcol.receiver.otlp "example" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.exporter.otlp.default.input]
+    logs    = [otelcol.exporter.otlp.default.input]
+    traces  = [otelcol.exporter.otlp.default.input]
+  }
+}
+
+prometheus.scrape "mythical" {
+    // Scrape from the mythical requester and server services, and add them to the 'mythical' group with their service
+    // names.
+    targets = [
+        {"__address__" = "app1:6091", group = "dev", service = "app1"},
+        {"__address__" = "app2:6092", group = "dev", service = "app2"},
+    ]
+    // We need a scrape interval and timeout of 2s as we want reactive metric data.
+    scrape_interval = "2s"
+    scrape_timeout = "2s"
+    // Send the metrics to the prometheus remote write receiver for exporting to Mimir.
+    forward_to = [prometheus.remote_write.mimir.receiver]
+    // Attach the job name to the metrics.
+    job_name = "dev"
+}
+
+prometheus.remote_write "mimir" {
+    // The endpoint is the Mimir service.
+    endpoint {
+        url = "http://mimir:9009/api/v1/push"
+    }
+}
+

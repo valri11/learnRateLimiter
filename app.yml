@@ -2,4 +2,11 @@
 server:
   port: 6090
   disableTLS: true
-  globalReqRateLimitPerSec: 50
+  enableTelemetry: true
+  telemetryCollector: localhost:4317
+  rateLimits:
+    globalReqRateLimitPerSec: 100
+    serviceConcurrentRequestAllowance: 10
+    store:
+      type: redis
+      connection: redis:6379
