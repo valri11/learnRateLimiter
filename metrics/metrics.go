@@ -101,7 +101,6 @@ func WithMetrics(metrics *AppMetrics) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			requestStartTime := time.Now()
-			metrics.ReqCounter.Add(ctx, 1)
 
 			ew := ExtendResponseWriter(w)
 			next.ServeHTTP(ew, r)
@@ -112,6 +111,10 @@ func WithMetrics(metrics *AppMetrics) func(http.Handler) http.Handler {
 					metricsApi.WithAttributes(
 						attribute.Int("status", ew.StatusCode)))
 			}
+
+			metrics.ReqCounter.Add(ctx, 1,
+				metricsApi.WithAttributes(
+					attribute.Int("status", ew.StatusCode)))
 
 			elapsedTime := float64(time.Since(requestStartTime)) / float64(time.Millisecond)
 			metrics.ReqDuration.Record(ctx, elapsedTime)

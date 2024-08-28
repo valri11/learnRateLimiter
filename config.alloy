@@ -34,6 +34,7 @@ prometheus.scrape "mythical" {
     targets = [
         {"__address__" = "app1:6091", group = "dev", service = "app1"},
         {"__address__" = "app2:6092", group = "dev", service = "app2"},
+        {"__address__" = "host.docker.internal:6090", group = "dev_local", service = "app1"},
     ]
     // We need a scrape interval and timeout of 2s as we want reactive metric data.
     scrape_interval = "2s"

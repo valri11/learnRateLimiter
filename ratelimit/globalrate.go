@@ -63,7 +63,7 @@ func (st *LocalLimitStore) TryPassRequestLimit(ctx context.Context) bool {
 	tsNowSeconds := time.Now().Unix()
 
 	if tsNowSeconds == st.limit.Timestamp {
-		if st.limit.Counter >= st.limit.Limit {
+		if st.limit.Counter > st.limit.Limit {
 			return false
 		}
 	} else {
@@ -131,25 +131,56 @@ func NewRedisLimitStore(store config.Store, rateLimitPerSec int32) (*RedisLimitS
 }
 
 func (st *RedisLimitStore) TryPassRequestLimit(ctx context.Context) bool {
-
 	logger := mdlogger.FromContext(ctx)
-	val, err := st.client.Get(ctx, st.limitKeyName).Int()
 
-	if errors.Is(err, redis.Nil) {
-		st.client.Set(ctx, st.limitKeyName, 1, 1*time.Second)
-		return true
-	} else if err != nil {
-		logger.With(zap.Error(err)).Error("request rate limited")
+	script :=
+		`local current
+current = redis.call("incr",KEYS[1])
+if current == 1 then
+    redis.call("expire",KEYS[1],1)
+end
+return current
+`
+
+	val, err := st.client.Eval(ctx, script, []string{st.limitKeyName}).Int()
+	if err != nil {
+		logger.With(zap.Error(err)).Error("request rate limited, check error message")
 		return false
 	}
 
-	if val >= int(st.limit.Limit) {
+	if val > int(st.limit.Limit) {
+		logger.
+			With(zap.Int("req_count", val)).
+			With(zap.Int32("limit", st.limit.Limit)).
+			Warn("breach rate limit")
 		return false
 	}
-
-	st.client.Incr(ctx, st.limitKeyName)
 
 	return true
+
+	/*
+		pipe := st.client.TxPipeline()
+
+		incr := pipe.Incr(ctx, st.limitKeyName)
+		//pipe.Expire(ctx, st.limitKeyName, 1*time.Second)
+		pipe.ExpireNX(ctx, st.limitKeyName, 1*time.Second)
+
+		_, err := pipe.Exec(ctx)
+		if err != nil {
+			logger.With(zap.Error(err)).Error("request rate limited, check error message")
+			return false
+		}
+
+		if incr.Val() > int64(st.limit.Limit) {
+			logger.
+				With(zap.Int64("req_count", incr.Val())).
+				With(zap.Int32("limit", st.limit.Limit)).
+				Warn("breach rate limit")
+			return false
+		}
+
+		return true
+	*/
 }
 
 func WithGlobalRequestRateLimiter(store config.Store, rateLimitPerSec int32) func(http.Handler) http.Handler {
@@ -163,7 +194,7 @@ func WithGlobalRequestRateLimiter(store config.Store, rateLimitPerSec int32) fun
 			ctx := r.Context()
 			if !limitStore.TryPassRequestLimit(ctx) {
 				logger := mdlogger.FromContext(r.Context())
-				logger.Warn("request rate limited")
+				logger.With(zap.Int32("limit", rateLimitPerSec)).Warn("request rate limited")
 
 				w.WriteHeader(http.StatusTooManyRequests)
 				return

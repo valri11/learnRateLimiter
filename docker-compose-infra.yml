@@ -1,0 +1,72 @@
+services:
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+
+  oltp_collector:
+    image: "grafana/alloy:latest"
+    configs:
+      - source: alloy_config
+        target: /etc/alloy/config.alloy
+    command: [
+      "run",
+      "--server.http.listen-addr=0.0.0.0:12345",
+      "--stability.level=public-preview",
+      "/etc/alloy/config.alloy",
+    ]
+    ports:
+      - "12345:12345"
+      - "4317:4317"
+  
+  tempo:
+    image: grafana/tempo:2.5.0
+    configs:
+      - source: tempo_config
+        target: /etc/tempo.yaml
+    ports:
+      - "3200:3200"
+        #- "4317:4317"
+      - "4318:4318"
+      - "9411:9411"
+      - "55680:55680"
+      - "55681:55681"
+      - "14250:14250"
+    command: [ "-config.file=/etc/tempo.yaml" ]
+
+  mimir:
+    image: grafana/mimir:2.13.0
+    configs:
+      - source: mimir_config
+        target: /etc/mimir.yaml
+    command: ["-ingester.native-histograms-ingestion-enabled=true", "-config.file=/etc/mimir.yaml"]
+    ports:
+      - "9009:9009"
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    volumes:
+      - "./grafana/provisioning:/etc/grafana/provisioning"
+      - "./grafana/dashboards:/var/lib/grafana/dashboards"
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_FEATURE_TOGGLES_ENABLE=flameGraph traceqlSearch traceQLStreaming correlations metricsSummary traceqlEditor traceToMetrics traceToProfiles datatrails
+      - GF_INSTALL_PLUGINS=https://storage.googleapis.com/integration-artifacts/grafana-lokiexplore-app/grafana-lokiexplore-app-latest.zip;grafana-lokiexplore-app
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+
+configs:
+  app_config:
+    file: ./app.yml
+  alloy_config:
+    file: ./config.alloy
+  tempo_config:
+    file: ./tempo.yml
+  mimir_config:
+    file: ./mimir.yaml
+  nginx_config:
+    file: ./nginx.conf
+

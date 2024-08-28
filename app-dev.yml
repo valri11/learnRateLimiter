@@ -5,8 +5,8 @@ server:
   enableTelemetry: true
   telemetryCollector: localhost:4317
   rateLimits:
-    globalReqRateLimitPerSec: 800
-    serviceConcurrentRequestAllowance: 10
+    globalReqRateLimitPerSec: 500
+    serviceConcurrentRequestAllowance: 20
     store:
       type: redis
-      connection: redis:6379
+      connection: localhost:6379
