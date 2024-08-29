@@ -14,7 +14,7 @@ import (
 
 type AppMetrics struct {
 	ReqCounter  metricsApi.Int64Counter
-	ReqDuration metricsApi.Float64Histogram
+	ReqDuration metricsApi.Int64Histogram
 	ErrCounter  metricsApi.Int64Counter
 }
 
@@ -23,7 +23,7 @@ func NewAppMetrics(meter metricsApi.Meter) (*AppMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	reqDuration, err := meter.Float64Histogram(
+	reqDuration, err := meter.Int64Histogram(
 		"req_duration",
 		metricsApi.WithDescription("Requests handler end to end duration"),
 		metricsApi.WithUnit("ms"),
@@ -116,7 +116,7 @@ func WithMetrics(metrics *AppMetrics) func(http.Handler) http.Handler {
 				metricsApi.WithAttributes(
 					attribute.Int("status", ew.StatusCode)))
 
-			elapsedTime := float64(time.Since(requestStartTime)) / float64(time.Millisecond)
+			elapsedTime := time.Since(requestStartTime).Milliseconds()
 			metrics.ReqDuration.Record(ctx, elapsedTime)
 		})
 	}

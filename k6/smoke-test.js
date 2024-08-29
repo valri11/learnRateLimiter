@@ -10,8 +10,8 @@ export const options = {
   scenarios: {
     contacts: {
       executor: 'constant-arrival-rate',
-      duration: '130s',
-      rate: 460,
+      duration: '30s',
+      rate: 10,
       timeUnit: '1s',
 
       // Pre-allocate necessary VUs.

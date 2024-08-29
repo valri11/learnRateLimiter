@@ -27,6 +27,7 @@ import (
 	"github.com/valri11/go-servicepack/telemetry"
 
 	"github.com/valri11/learnRateLimiter/config"
+	"github.com/valri11/learnRateLimiter/metrics"
 	appmetrics "github.com/valri11/learnRateLimiter/metrics"
 	"github.com/valri11/learnRateLimiter/ratelimit"
 )
@@ -109,7 +110,7 @@ func WithLogger(logger *zap.Logger) func(http.Handler) http.Handler {
 				zap.String("path", r.URL.Path),
 				zap.String("proto", r.Proto),
 				zap.String("remoteAddr", r.RemoteAddr),
-				//zap.Int("status", wl.status),
+				// zap.Int("status", wl.status),
 				zap.Float64("latency", float64(time.Since(startedAt))/float64(time.Microsecond)),
 			)
 		})
@@ -175,6 +176,7 @@ func doServerCmd(cmd *cobra.Command, args []string) {
 		cors.CORS,
 		appmetrics.WithMetrics(h.metrics),
 		WithOtelTracerContext(h.tracer),
+		metrics.WithOtelMeterContext(h.meter),
 		ratelimit.WithGlobalRequestRateLimiter(
 			cfg.Server.RateLimits.Store,
 			int32(cfg.Server.RateLimits.GlobalReqRateLimitPerSec)),

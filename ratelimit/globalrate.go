@@ -23,8 +23,8 @@ type FixedWindowLimit struct {
 }
 
 type LimitStore interface {
-	//GetRateLimit() FixedWindowLimit
-	//ResetRateLimit()
+	// GetRateLimit() FixedWindowLimit
+	// ResetRateLimit()
 
 	TryPassRequestLimit(ctx context.Context) bool
 }
@@ -96,7 +96,6 @@ type RedisLimitStore struct {
 }
 
 func NewRedisLimitStore(store config.Store, rateLimitPerSec int32) (*RedisLimitStore, error) {
-
 	ctx := context.Background()
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs: []string{store.Connection},
@@ -133,8 +132,7 @@ func NewRedisLimitStore(store config.Store, rateLimitPerSec int32) (*RedisLimitS
 func (st *RedisLimitStore) TryPassRequestLimit(ctx context.Context) bool {
 	logger := mdlogger.FromContext(ctx)
 
-	script :=
-		`local current
+	script := `local current
 current = redis.call("incr",KEYS[1])
 if current == 1 then
     redis.call("expire",KEYS[1],1)
@@ -155,6 +153,11 @@ return current
 			Warn("breach rate limit")
 		return false
 	}
+
+	logger.
+		With(zap.Int("req_count", val)).
+		With(zap.Int32("limit", st.limit.Limit)).
+		Debug("rate limit check")
 
 	return true
 
@@ -190,7 +193,6 @@ func WithGlobalRequestRateLimiter(store config.Store, rateLimitPerSec int32) fun
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 			ctx := r.Context()
 			if !limitStore.TryPassRequestLimit(ctx) {
 				logger := mdlogger.FromContext(r.Context())
