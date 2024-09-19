@@ -11,7 +11,7 @@ export const options = {
     contacts: {
       executor: 'constant-arrival-rate',
       duration: '30s',
-      rate: 10,
+      rate: 11,
       timeUnit: '1s',
 
       // Pre-allocate necessary VUs.

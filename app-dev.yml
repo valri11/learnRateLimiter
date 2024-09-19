@@ -8,5 +8,5 @@ server:
     globalReqRateLimitPerSec: 10
     serviceConcurrentRequestAllowance: 20
     store:
-      type: redis
+      type: redisSlidingWindow
       connection: localhost:6379
