@@ -27,6 +27,8 @@ func NewLimitStore(store config.Store, rateLimitPerSec int32) (LimitStore, error
 		return NewRedisLimitStore(store, rateLimitPerSec)
 	case "redisSlidingWindow":
 		return NewRedisSlidingWindowLimit(store, rateLimitPerSec)
+	case "redisTokenBucket":
+		return NewRedisTokenBucketLimit(store, rateLimitPerSec)
 	}
 
 	return nil, errors.New(fmt.Sprintf("unknown store type: %s", store.Type))

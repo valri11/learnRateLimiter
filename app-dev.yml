@@ -5,8 +5,8 @@ server:
   enableTelemetry: true
   telemetryCollector: localhost:4317
   rateLimits:
-    globalReqRateLimitPerSec: 10
+    globalReqRateLimitPerSec: 1000
     serviceConcurrentRequestAllowance: 20
     store:
-      type: redisSlidingWindow
+      type: redisTokenBucket
       connection: localhost:6379
