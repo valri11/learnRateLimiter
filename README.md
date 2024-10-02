@@ -6,6 +6,7 @@ docker compose up --build --force-recreate
 
 ## Resources
 
+<https://www.ietf.org/archive/id/draft-polli-ratelimit-headers-02.html>
 <https://redis.io/ebook/redis-in-action>
 <https://techblog.criteo.com/distributed-rate-limiting-algorithms-a35f7e24783>
 <https://blog.callr.tech/rate-limiting-for-distributed-systems-with-redis-and-lua>

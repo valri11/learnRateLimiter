@@ -27,6 +27,8 @@ func NewLimitStore(store config.Store, rateLimitPerSec int) (LimitStore, error) 
 		return NewRedisTokenBucketLimit(store, rateLimitPerSec)
 	case "localAdaptiveTokenBucket":
 		return NewLocalAdaptiveTokenBucketLimit(store, rateLimitPerSec)
+	case "redisAdaptiveTokenBucket":
+		return NewRedisAdaptiveTokenBucketLimit(store, rateLimitPerSec)
 	}
 
 	return nil, fmt.Errorf("unknown store type: %s", store.Type)

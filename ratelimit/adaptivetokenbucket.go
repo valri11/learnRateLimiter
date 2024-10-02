@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	mdlogger "github.com/valri11/go-servicepack/logger"
@@ -20,6 +21,7 @@ type RateLimitTier struct {
 }
 
 type LocalAdaptiveTokenBucketLimit struct {
+	mx             sync.Mutex
 	Tiers          []RateLimitTier
 	CurrentTierIdx int
 	WindowStartTs  int64
@@ -88,6 +90,9 @@ func NewLocalAdaptiveTokenBucketLimit(store config.Store, rateLimitPerSec int) (
 }
 
 func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
+	st.mx.Lock()
+	defer st.mx.Unlock()
+
 	logger := mdlogger.FromContext(ctx)
 
 	tsNow := getTimeNowFn().UnixMilli()
@@ -179,4 +184,70 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 	*/
 
 	return true
+}
+
+type RedisAdaptiveTokenBucketLimit struct {
+}
+
+func NewRedisAdaptiveTokenBucketLimit(store config.Store, rateLimitPerSec int) (*RedisAdaptiveTokenBucketLimit, error) {
+
+	// parse tiers
+	tiers := make([]RateLimitTier, 0)
+
+	tiersCfg := store.Parameters["tiers"]
+	tiersCfgList := strings.Split(tiersCfg, ";")
+	for idx, tc := range tiersCfgList {
+		if idx+1 == len(tiersCfgList) && tc == "" {
+			// allow closing ";"
+			break
+		}
+		tcp := strings.Split(tc, ",")
+		if len(tcp) != 4 {
+			return nil, fmt.Errorf("invalid tier config: %s", tc)
+		}
+		capacity, err := strconv.Atoi(tcp[0])
+		if err != nil {
+			return nil, fmt.Errorf("invalid tier config (capacity): %s, err: %v", tc, err)
+		}
+
+		if idx > 0 {
+			// sanity check increasing capacity
+			if int64(capacity) < tiers[idx-1].Capacity {
+				return nil, fmt.Errorf("tiers should have increasing capacity")
+			}
+		}
+
+		refillInterval, err := time.ParseDuration(tcp[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid tier config (refillInterval): %s, err: %v", tc, err)
+		}
+
+		window, err := time.ParseDuration(tcp[2])
+		if err != nil {
+			return nil, fmt.Errorf("invalid tier config (window): %s, err: %v", tc, err)
+		}
+
+		nextTierRejectRate, err := strconv.Atoi(tcp[3])
+		if err != nil {
+			return nil, fmt.Errorf("invalid tier config (nextTierRejectRate): %s, err: %v", tc, err)
+		}
+
+		tiers = append(tiers, RateLimitTier{
+			Capacity:           int64(capacity),
+			RefillInterval:     refillInterval.Milliseconds(),
+			WindowDuration:     window.Milliseconds(),
+			NextTierRejectRate: nextTierRejectRate,
+		})
+	}
+
+	tbl := RedisAdaptiveTokenBucketLimit{
+		//Tiers: tiers,
+	}
+
+	return &tbl, nil
+}
+
+func (st *RedisAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
+
+	return false
 }
