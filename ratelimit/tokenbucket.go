@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"sync"
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
@@ -10,13 +11,58 @@ import (
 	"go.uber.org/zap"
 )
 
+type LocalTokenBucketLimit struct {
+	Limit          int32
+	Counter        int32
+	LastRefillTime int64
+	mx             sync.Mutex
+}
+
+func NewLocalTokenBucketLimit(rateLimitPerSec int32) (*LocalTokenBucketLimit, error) {
+	tb := LocalTokenBucketLimit{
+		Limit: rateLimitPerSec,
+	}
+	return &tb, nil
+}
+
+func (tb *LocalTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
+	tb.mx.Lock()
+	defer tb.mx.Unlock()
+
+	tsNowSeconds := getTimeNowFn().Unix()
+
+	// refill interval - 1 sec
+
+	// check if need to refill the bucket
+	timeSinceLastRefill := tsNowSeconds - tb.LastRefillTime
+	if timeSinceLastRefill > 0 {
+		tb.Counter = 0
+		tb.LastRefillTime = tsNowSeconds
+	}
+
+	tb.Counter++
+
+	return tb.Counter < tb.Limit
+}
+
 type RedisTokenBucketLimit struct {
-	Limit        int32
+	Capacity     int32
+	RefillRateMs int32
 	client       redis.UniversalClient
 	limitKeyName string
 }
 
 func NewRedisTokenBucketLimit(store config.Store, rateLimitPerSec int32) (*RedisTokenBucketLimit, error) {
+
+	// from rateLimitPerSec
+	// capacity = rateLimitPerSec
+	// refill_rate = 1000 / rateLimitPerSec
+	// example:
+	// rateLimitPerSec = 10
+	// 10 requests per second
+	// capacity = 10
+	// refill_rate = 100ms
+
 	ctx := context.Background()
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs: []string{store.Connection},
@@ -38,7 +84,8 @@ func NewRedisTokenBucketLimit(store config.Store, rateLimitPerSec int32) (*Redis
 	}
 
 	rsw := RedisTokenBucketLimit{
-		Limit:        rateLimitPerSec,
+		Capacity:     rateLimitPerSec,
+		RefillRateMs: 1000 / rateLimitPerSec,
 		client:       client,
 		limitKeyName: "tokenBucketLimit",
 	}
@@ -50,29 +97,56 @@ func (rsw *RedisTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool 
 	logger := mdlogger.FromContext(ctx)
 
 	script := `local now = redis.call('TIME')
-local window = tonumber(ARGV[1])
-local max_requests = tonumber(ARGV[2])
-local key = KEYS[1]
+local capacity = tonumber(ARGV[1])
+local refill_rate_ms = tonumber(ARGV[2])
+local key_tokens = KEYS[1] .. "tokens"
+local key_last_access = KEYS[1] .. "last_access"
+
+local requested_tokens = 1
+
 local now_ms = math.floor(now[1] * 1000 + now[2] / 1000);
-local start_window_id = now_ms - window * 1000
-local range = redis.call('XRANGE', key, start_window_id, '+')
+
+-- fetch tokens in the bucket
+local last_tokens = tonumber(redis.call("GET", key_tokens))
+if last_tokens == nil then
+    last_tokens = capacity
+end
+
+-- fetch the last access time
+local last_access_ms = tonumber(redis.call("GET", key_last_access))
+if last_access_ms == nil then
+    last_access_ms = 0
+end
+
+-- Calculate the number of tokens to be added due to the elapsed time since the
+-- last access. We cap the number at the capacity of the bucket.
+local elapsed_ms = math.max(0, now_ms - last_access_ms)
+local add_tokens = math.floor(elapsed_ms / refill_rate_ms)
+local new_tokens = math.min(capacity, last_tokens + add_tokens)
+
+-- Calculate the new last access time. We don't want to use the current time as
+-- the new last access time, because that would result in a rounding error.
+local new_access_time_ms = last_access_ms + math.ceil(add_tokens * refill_rate_ms)
+--local new_access_time_ms = now_ms
+
+-- Check if enough tokens have been accumulated
+local allowed = new_tokens >= requested_tokens
+if allowed then
+    new_tokens = new_tokens - requested_tokens
+end
+
+-- Update state
+redis.call("SET", key_tokens, new_tokens, "EX", 2)
+redis.call("SET", key_last_access, new_access_time_ms, "EX", 2)
+
 local request_count = 0;
-for _, item in ipairs(range) do
-    request_count = request_count + tonumber(item[2][2])
-end
 
-if request_count >= max_requests then
-    return {1,request_count} 
-end
-
-redis.call('XADD', key, 'MINID', '~', start_window_id, '*', 'count', 1)
-redis.call('EXPIRE', key, window)
-return {0, request_count+1}`
+return {allowed and 0 or 1, capacity - new_tokens}`
 
 	ret, err := rsw.client.Eval(ctx, script,
 		[]string{rsw.limitKeyName},
-		1,
-		rsw.Limit,
+		rsw.Capacity,
+		rsw.RefillRateMs,
 	).Slice()
 	if err != nil {
 		logger.With(zap.Error(err)).Error("request rate limited, check error message")
@@ -85,14 +159,14 @@ return {0, request_count+1}`
 	if res != 0 {
 		logger.
 			With(zap.Int64("req_count", req_count)).
-			With(zap.Int32("limit", rsw.Limit)).
+			With(zap.Int32("limit", rsw.Capacity)).
 			Warn("breach rate limit")
 		return false
 	}
 
 	logger.
 		With(zap.Int64("req_count", req_count)).
-		With(zap.Int32("limit", rsw.Limit)).
+		With(zap.Int32("limit", rsw.Capacity)).
 		Debug("rate limit check")
 
 	return true

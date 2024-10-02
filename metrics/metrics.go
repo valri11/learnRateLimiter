@@ -27,6 +27,7 @@ func NewAppMetrics(meter metricsApi.Meter) (*AppMetrics, error) {
 		"req_duration",
 		metricsApi.WithDescription("Requests handler end to end duration"),
 		metricsApi.WithUnit("ms"),
+		metricsApi.WithExplicitBucketBoundaries([]float64{0, 5, 10, 25, 50, 75, 100, 250, 500}...),
 	)
 	if err != nil {
 		return nil, err

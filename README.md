@@ -19,6 +19,8 @@ docker compose up --build --force-recreate
 <https://www.figma.com/blog/an-alternative-approach-to-rate-limiting/>
 <https://blog.cloudflare.com/counting-things-a-lot-of-different-things>
 <https://trycatch22.net/counter-sliding-window/>
+<https://blogs.halodoc.io/taming-the-traffic-redis-and-lua-powered-sliding-window-rate-limiter-in-action/>
+<https://redis.io/learn/develop/dotnet/aspnetcore/rate-limiting/sliding-window>
 
 
 

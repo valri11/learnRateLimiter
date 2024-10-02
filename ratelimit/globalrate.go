@@ -2,7 +2,6 @@ package ratelimit
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -20,18 +19,18 @@ func NewLimitStore(store config.Store, rateLimitPerSec int32) (LimitStore, error
 
 	switch store.Type {
 	case "local":
-		return NewLocalLimitStore(store, rateLimitPerSec)
+		return NewLocalFixedWindowLimit(rateLimitPerSec)
 	case "localSlidingWindow":
 		return NewLocalSlidingWindowLimit(rateLimitPerSec)
 	case "redis":
-		return NewRedisLimitStore(store, rateLimitPerSec)
+		return NewRedisFixedWindowLimit(store, rateLimitPerSec)
 	case "redisSlidingWindow":
 		return NewRedisSlidingWindowLimit(store, rateLimitPerSec)
 	case "redisTokenBucket":
 		return NewRedisTokenBucketLimit(store, rateLimitPerSec)
 	}
 
-	return nil, errors.New(fmt.Sprintf("unknown store type: %s", store.Type))
+	return nil, fmt.Errorf("unknown store type: %s", store.Type)
 }
 
 func WithGlobalRequestRateLimiter(store config.Store, rateLimitPerSec int32) func(http.Handler) http.Handler {

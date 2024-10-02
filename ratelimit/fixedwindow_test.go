@@ -12,9 +12,9 @@ import (
 	mdlogger "github.com/valri11/go-servicepack/logger"
 )
 
-func Test_SlidingWindow_NoBreach(t *testing.T) {
+func Test_LocalFixedWindow_NoBreach(t *testing.T) {
 	limitPerSec := 10
-	sw, err := NewLocalSlidingWindowLimit(int32(limitPerSec))
+	sw, err := NewLocalFixedWindowLimit(int32(limitPerSec))
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -43,9 +43,9 @@ func Test_SlidingWindow_NoBreach(t *testing.T) {
 	assert.True(t, res)
 }
 
-func Test_SlidingWindow_Breach(t *testing.T) {
+func Test_LocalFixedWindow_Breach(t *testing.T) {
 	limitPerSec := 10
-	sw, err := NewLocalSlidingWindowLimit(int32(limitPerSec))
+	sw, err := NewLocalFixedWindowLimit(int32(limitPerSec))
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)

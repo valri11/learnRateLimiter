@@ -342,7 +342,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ms"
         },
         "overrides": []
       },
@@ -383,7 +384,7 @@
           "useBackend": false
         }
       ],
-      "title": "Average requests duration (ms)",
+      "title": "Average requests duration",
       "type": "timeseries"
     },
     {
@@ -444,7 +445,8 @@
         },
         "yAxis": {
           "axisPlacement": "left",
-          "reverse": false
+          "reverse": false,
+          "unit": "ms"
         }
       },
       "pluginVersion": "11.1.4",
@@ -456,7 +458,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(le) (increase(req_duration_milliseconds_bucket{service=\"app1\"}[$__rate_interval]))",
+          "expr": "sum by(le) (increase(req_duration_milliseconds_bucket{service=\"app1\"}[$__interval]))",
           "format": "heatmap",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -639,7 +641,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(le) (increase(concurrent_req_bucket{service=\"app1\"}[$__rate_interval]))",
+          "expr": "sum by(le) (increase(concurrent_req_bucket{service=\"app1\"}[$__interval]))",
           "format": "heatmap",
           "fullMetaSearch": false,
           "includeNullMetadata": true,

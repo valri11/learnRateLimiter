@@ -3,6 +3,7 @@ module github.com/valri11/learnRateLimiter
 go 1.22.2
 
 require (
+	github.com/alicebob/miniredis/v2 v2.33.0
 	github.com/justinas/alice v1.2.0
 	github.com/prometheus/client_golang v1.20.1
 	github.com/redis/go-redis/extra/redisotel/v9 v9.5.3
@@ -22,6 +23,7 @@ require (
 )
 
 require (
+	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -53,6 +55,7 @@ require (
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.18.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.18.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect

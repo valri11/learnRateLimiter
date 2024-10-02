@@ -12,57 +12,51 @@ import (
 	"go.uber.org/zap"
 )
 
-type FixedWindowLimit struct {
+type LocalFixedWindowLimit struct {
 	Timestamp int64
 	Limit     int32
 	Counter   int32
+	mx        sync.Mutex
 }
 
-type LocalLimitStore struct {
-	store config.Store
-	limit FixedWindowLimit
-	mx    sync.Mutex
-}
-
-func NewLocalLimitStore(store config.Store, rateLimitPerSec int32) (*LocalLimitStore, error) {
-	st := LocalLimitStore{
-		store: store,
-		limit: FixedWindowLimit{
-			Timestamp: time.Now().Unix(),
-			Limit:     rateLimitPerSec,
-		},
+func NewLocalFixedWindowLimit(rateLimitPerSec int32) (*LocalFixedWindowLimit, error) {
+	st := LocalFixedWindowLimit{
+		Timestamp: time.Now().Unix(),
+		Limit:     rateLimitPerSec,
 	}
 	return &st, nil
 }
 
-func (st *LocalLimitStore) TryPassRequestLimit(ctx context.Context) bool {
+func (st *LocalFixedWindowLimit) TryPassRequestLimit(ctx context.Context) bool {
 	st.mx.Lock()
 	defer st.mx.Unlock()
 
-	tsNowSeconds := time.Now().Unix()
+	tsNowSeconds := getTimeNowFn().Unix()
 
-	if tsNowSeconds == st.limit.Timestamp {
-		if st.limit.Counter > st.limit.Limit {
+	if tsNowSeconds == st.Timestamp {
+		if st.Counter >= st.Limit {
 			return false
 		}
 	} else {
-		st.limit.Timestamp = time.Now().Unix()
-		st.limit.Counter = 0
+		st.Timestamp = tsNowSeconds
+		st.Counter = 0
 	}
 
-	st.limit.Counter++
+	st.Counter++
 
 	return true
 }
 
-type RedisLimitStore struct {
+type RedisFixedWindowLimit struct {
 	store        config.Store
-	limit        FixedWindowLimit
+	Timestamp    int64
+	Limit        int32
+	Counter      int32
 	client       redis.UniversalClient
 	limitKeyName string
 }
 
-func NewRedisLimitStore(store config.Store, rateLimitPerSec int32) (*RedisLimitStore, error) {
+func NewRedisFixedWindowLimit(store config.Store, rateLimitPerSec int32) (*RedisFixedWindowLimit, error) {
 	ctx := context.Background()
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs: []string{store.Connection},
@@ -83,12 +77,10 @@ func NewRedisLimitStore(store config.Store, rateLimitPerSec int32) (*RedisLimitS
 		return nil, err
 	}
 
-	st := RedisLimitStore{
-		store: store,
-		limit: FixedWindowLimit{
-			Timestamp: time.Now().Unix(),
-			Limit:     rateLimitPerSec,
-		},
+	st := RedisFixedWindowLimit{
+		store:        store,
+		Timestamp:    time.Now().Unix(),
+		Limit:        rateLimitPerSec,
 		client:       client,
 		limitKeyName: "fixedWindowLimit",
 	}
@@ -96,7 +88,7 @@ func NewRedisLimitStore(store config.Store, rateLimitPerSec int32) (*RedisLimitS
 	return &st, nil
 }
 
-func (st *RedisLimitStore) TryPassRequestLimit(ctx context.Context) bool {
+func (st *RedisFixedWindowLimit) TryPassRequestLimit(ctx context.Context) bool {
 	logger := mdlogger.FromContext(ctx)
 
 	script := `local current
@@ -113,17 +105,17 @@ return current
 		return false
 	}
 
-	if val > int(st.limit.Limit) {
+	if val > int(st.Limit) {
 		logger.
 			With(zap.Int("req_count", val)).
-			With(zap.Int32("limit", st.limit.Limit)).
+			With(zap.Int32("limit", st.Limit)).
 			Warn("breach rate limit")
 		return false
 	}
 
 	logger.
 		With(zap.Int("req_count", val)).
-		With(zap.Int32("limit", st.limit.Limit)).
+		With(zap.Int32("limit", st.Limit)).
 		Debug("rate limit check")
 
 	return true

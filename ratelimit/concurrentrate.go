@@ -20,13 +20,7 @@ func WithConcurrentRequestRateLimiter(meter metricsApi.Meter, concurrentRequestA
 	if err != nil {
 		panic(err)
 	}
-	concurrentReqGauge, err := meter.Int64Gauge(
-		"concurrent_req_gauge",
-		metricsApi.WithDescription("Concurrent requests gauge"),
-	)
-	if err != nil {
-		panic(err)
-	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -41,7 +35,6 @@ func WithConcurrentRequestRateLimiter(meter metricsApi.Meter, concurrentRequestA
 
 			atomic.AddInt32(&inProgressRequestCounter, 1)
 			concurrentReqMeter.Record(ctx, int64(inProgressRequestCounter))
-			concurrentReqGauge.Record(ctx, int64(inProgressRequestCounter))
 
 			next.ServeHTTP(w, r)
 

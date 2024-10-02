@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap/zapcore"
-
 	mdlogger "github.com/valri11/go-servicepack/logger"
+	"go.uber.org/zap/zapcore"
 )
 
-func Test_SlidingWindow_NoBreach(t *testing.T) {
+func Test_LocalTokenBucketWindow_NoBreach(t *testing.T) {
 	limitPerSec := 10
-	sw, err := NewLocalSlidingWindowLimit(int32(limitPerSec))
+	sw, err := NewLocalTokenBucketLimit(int32(limitPerSec))
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -32,7 +31,7 @@ func Test_SlidingWindow_NoBreach(t *testing.T) {
 	res := sw.TryPassRequestLimit(ctx)
 	assert.True(t, res)
 
-	for i := 1; i < 10; i++ {
+	for i := 1; i < 9; i++ {
 		getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 		res = sw.TryPassRequestLimit(ctx)
 		assert.True(t, res)
@@ -43,9 +42,9 @@ func Test_SlidingWindow_NoBreach(t *testing.T) {
 	assert.True(t, res)
 }
 
-func Test_SlidingWindow_Breach(t *testing.T) {
+func Test_LocalTokenBucket_Breach(t *testing.T) {
 	limitPerSec := 10
-	sw, err := NewLocalSlidingWindowLimit(int32(limitPerSec))
+	sw, err := NewLocalTokenBucketLimit(int32(limitPerSec))
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -63,7 +62,7 @@ func Test_SlidingWindow_Breach(t *testing.T) {
 	res := sw.TryPassRequestLimit(ctx)
 	assert.True(t, res)
 
-	for i := 1; i < 10; i++ {
+	for i := 1; i < 9; i++ {
 		getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 		res = sw.TryPassRequestLimit(ctx)
 		assert.True(t, res)
