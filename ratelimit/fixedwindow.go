@@ -19,10 +19,10 @@ type LocalFixedWindowLimit struct {
 	mx        sync.Mutex
 }
 
-func NewLocalFixedWindowLimit(rateLimitPerSec int32) (*LocalFixedWindowLimit, error) {
+func NewLocalFixedWindowLimit(rateLimitPerSec int) (*LocalFixedWindowLimit, error) {
 	st := LocalFixedWindowLimit{
 		Timestamp: time.Now().Unix(),
-		Limit:     rateLimitPerSec,
+		Limit:     int32(rateLimitPerSec),
 	}
 	return &st, nil
 }
@@ -56,10 +56,10 @@ type RedisFixedWindowLimit struct {
 	limitKeyName string
 }
 
-func NewRedisFixedWindowLimit(store config.Store, rateLimitPerSec int32) (*RedisFixedWindowLimit, error) {
+func NewRedisFixedWindowLimit(store config.Store, rateLimitPerSec int) (*RedisFixedWindowLimit, error) {
 	ctx := context.Background()
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs: []string{store.Connection},
+		Addrs: []string{store.Parameters["connection"]},
 	})
 
 	// Enable tracing instrumentation.
@@ -80,7 +80,7 @@ func NewRedisFixedWindowLimit(store config.Store, rateLimitPerSec int32) (*Redis
 	st := RedisFixedWindowLimit{
 		store:        store,
 		Timestamp:    time.Now().Unix(),
-		Limit:        rateLimitPerSec,
+		Limit:        int32(rateLimitPerSec),
 		client:       client,
 		limitKeyName: "fixedWindowLimit",
 	}

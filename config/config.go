@@ -2,7 +2,7 @@ package config
 
 type Store struct {
 	Type       string
-	Connection string
+	Parameters map[string]string
 }
 
 type RateLimits struct {

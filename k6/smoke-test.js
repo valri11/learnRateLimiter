@@ -12,49 +12,44 @@ export const options = {
     http_req_duration: ['p(90) < 200'],
   },
 
-  scenarios: {
-    contacts: {
-      executor: 'constant-arrival-rate',
-      duration: '60s',
-      rate: 105,
-      timeUnit: '1s',
-
-      // Pre-allocate necessary VUs.
-      preAllocatedVUs: 350,
-    },
-  },
- 
 //  scenarios: {
 //    contacts: {
-//      executor: 'ramping-arrival-rate',
-//
-//      // Start iterations per `timeUnit`
-//      startRate: 10,
+//      executor: 'constant-arrival-rate',
+//      duration: '180s',
+//      rate: 200,
 //      timeUnit: '1s',
 //
 //      // Pre-allocate necessary VUs.
-//      preAllocatedVUs: 50,
-//
-//      stages: [
-//        { target: 30, duration: '20s' },
-//        { target: 50, duration: '20s' },
-//        { target: 60, duration: '20s' },
-//        { target: 80, duration: '20s' },
-//        { target: 90, duration: '20s' },
-//        { target: 99, duration: '20s' },
-//        { target: 100, duration: '20s' },
-//        { target: 50, duration: '20s' },
-//        { target: 30, duration: '20s' },
-//        { target: 100, duration: '20s' },
-//        { target: 200, duration: '20s' },
-//        { target: 300, duration: '20s' },
-//        { target: 400, duration: '20s' },
-//        { target: 500, duration: '20s' },
-//        { target: 600, duration: '30s' },
-//        { target: 100, duration: '20s' },
-//      ],
+//      preAllocatedVUs: 350,
 //    },
 //  },
+
+  scenarios: {
+    contacts: {
+      executor: 'ramping-arrival-rate',
+
+      // Start iterations per `timeUnit`
+      startRate: 40,
+      timeUnit: '1s',
+
+      // Pre-allocate necessary VUs.
+      preAllocatedVUs: 150,
+
+      stages: [
+        { target: 50, duration: '30s' },
+        { target: 60, duration: '60s' },
+        { target: 80, duration: '30s' },
+        { target: 90, duration: '30s' },
+        { target: 99, duration: '30s' },
+        { target: 100, duration: '60s' },
+        { target: 150, duration: '60s' },
+        { target: 200, duration: '180s' },
+        { target: 50, duration: '60s' },
+        { target: 30, duration: '60s' },
+      ],
+    },
+  },
+
 };
 
 export default function testSuite() {

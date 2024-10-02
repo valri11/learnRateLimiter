@@ -100,19 +100,21 @@ func WithLogger(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := mdlogger.NewContext(r.Context(), logger)
-			startedAt := time.Now()
+			//startedAt := time.Now()
 			r = r.WithContext(ctx)
 
 			next.ServeHTTP(w, r)
 
-			logger.Debug("request",
-				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
-				zap.String("proto", r.Proto),
-				zap.String("remoteAddr", r.RemoteAddr),
-				// zap.Int("status", wl.status),
-				zap.Float64("latency", float64(time.Since(startedAt))/float64(time.Microsecond)),
-			)
+			/*
+				logger.Debug("request",
+					zap.String("method", r.Method),
+					zap.String("path", r.URL.Path),
+					zap.String("proto", r.Proto),
+					zap.String("remoteAddr", r.RemoteAddr),
+					// zap.Int("status", wl.status),
+					zap.Float64("latency", float64(time.Since(startedAt))/float64(time.Microsecond)),
+				)
+			*/
 		})
 	}
 }
@@ -179,7 +181,7 @@ func doServerCmd(cmd *cobra.Command, args []string) {
 		metrics.WithOtelMeterContext(h.meter),
 		ratelimit.WithGlobalRequestRateLimiter(
 			cfg.Server.RateLimits.Store,
-			int32(cfg.Server.RateLimits.GlobalReqRateLimitPerSec)),
+			cfg.Server.RateLimits.GlobalReqRateLimitPerSec),
 		ratelimit.WithConcurrentRequestRateLimiter(h.meter, int32(cfg.Server.RateLimits.ServiceConcurrentRequestAllowance)),
 	}
 	handlerChain := alice.New(mwChain...).Then
@@ -211,9 +213,8 @@ func doServerCmd(cmd *cobra.Command, args []string) {
 }
 
 func (h *srvHandler) livezHandler(w http.ResponseWriter, r *http.Request) {
-	logger := mdlogger.FromContext(r.Context())
-
-	logger.Debug("livez")
+	//logger := mdlogger.FromContext(r.Context())
+	//logger.Debug("livez")
 
 	res := struct {
 		Status string `json:"status"`

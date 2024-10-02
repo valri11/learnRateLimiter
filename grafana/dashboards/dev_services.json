@@ -384,7 +384,7 @@
           "useBackend": false
         }
       ],
-      "title": "Average requests duration",
+      "title": "Average request duration",
       "type": "timeseries"
     },
     {

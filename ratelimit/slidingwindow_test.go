@@ -14,7 +14,7 @@ import (
 
 func Test_SlidingWindow_NoBreach(t *testing.T) {
 	limitPerSec := 10
-	sw, err := NewLocalSlidingWindowLimit(int32(limitPerSec))
+	sw, err := NewLocalSlidingWindowLimit(limitPerSec)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -45,7 +45,7 @@ func Test_SlidingWindow_NoBreach(t *testing.T) {
 
 func Test_SlidingWindow_Breach(t *testing.T) {
 	limitPerSec := 10
-	sw, err := NewLocalSlidingWindowLimit(int32(limitPerSec))
+	sw, err := NewLocalSlidingWindowLimit(limitPerSec)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)

@@ -52,7 +52,7 @@ type RedisTokenBucketLimit struct {
 	limitKeyName string
 }
 
-func NewRedisTokenBucketLimit(store config.Store, rateLimitPerSec int32) (*RedisTokenBucketLimit, error) {
+func NewRedisTokenBucketLimit(store config.Store, rateLimitPerSec int) (*RedisTokenBucketLimit, error) {
 
 	// from rateLimitPerSec
 	// capacity = rateLimitPerSec
@@ -65,7 +65,7 @@ func NewRedisTokenBucketLimit(store config.Store, rateLimitPerSec int32) (*Redis
 
 	ctx := context.Background()
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs: []string{store.Connection},
+		Addrs: []string{store.Parameters["connection"]},
 	})
 
 	// Enable tracing instrumentation.
@@ -84,8 +84,8 @@ func NewRedisTokenBucketLimit(store config.Store, rateLimitPerSec int32) (*Redis
 	}
 
 	rsw := RedisTokenBucketLimit{
-		Capacity:     rateLimitPerSec,
-		RefillRateMs: 1000 / rateLimitPerSec,
+		Capacity:     int32(rateLimitPerSec),
+		RefillRateMs: int32(1000 / rateLimitPerSec),
 		client:       client,
 		limitKeyName: "tokenBucketLimit",
 	}

@@ -18,9 +18,9 @@ type LocalSlidingWindowLimit struct {
 	mx       sync.Mutex
 }
 
-func NewLocalSlidingWindowLimit(limit int32) (*LocalSlidingWindowLimit, error) {
+func NewLocalSlidingWindowLimit(limit int) (*LocalSlidingWindowLimit, error) {
 	sw := LocalSlidingWindowLimit{
-		Limit: limit,
+		Limit: int32(limit),
 	}
 	return &sw, nil
 }
@@ -69,10 +69,10 @@ type RedisSlidingWindowLimit struct {
 	limitKeyName string
 }
 
-func NewRedisSlidingWindowLimit(store config.Store, rateLimitPerSec int32) (*RedisSlidingWindowLimit, error) {
+func NewRedisSlidingWindowLimit(store config.Store, rateLimitPerSec int) (*RedisSlidingWindowLimit, error) {
 	ctx := context.Background()
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs: []string{store.Connection},
+		Addrs: []string{store.Parameters["connection"]},
 	})
 
 	// Enable tracing instrumentation.
@@ -91,7 +91,7 @@ func NewRedisSlidingWindowLimit(store config.Store, rateLimitPerSec int32) (*Red
 	}
 
 	rsw := RedisSlidingWindowLimit{
-		Limit:        rateLimitPerSec,
+		Limit:        int32(rateLimitPerSec),
 		client:       client,
 		limitKeyName: "slidingWindowLimit",
 	}

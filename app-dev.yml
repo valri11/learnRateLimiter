@@ -5,9 +5,14 @@ server:
   enableTelemetry: true
   telemetryCollector: localhost:4317
   rateLimits:
-    globalReqRateLimitPerSec: 100
+    globalReqRateLimitPerSec: 200
     serviceConcurrentRequestAllowance: 20
     store:
-      type: redisTokenBucket
+      #type: redisTokenBucket
       #type: redisSlidingWindow
-      connection: localhost:6379
+      #type: redisAdaptiveTokenBucket
+      type: localAdaptiveTokenBucket
+      parameters:
+        connection: localhost:6379
+        tiers: "50,20ms,30s,10;100,10ms,30s,10;200,5ms,30s,10"
+

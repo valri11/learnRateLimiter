@@ -5,7 +5,6 @@ import (
 	"sync/atomic"
 
 	metricsApi "go.opentelemetry.io/otel/metric"
-	"go.uber.org/zap"
 
 	mdlogger "github.com/valri11/go-servicepack/logger"
 )
@@ -38,7 +37,7 @@ func WithConcurrentRequestRateLimiter(meter metricsApi.Meter, concurrentRequestA
 
 			next.ServeHTTP(w, r)
 
-			logger.With(zap.Int32("concurrent_req", inProgressRequestCounter)).Debug("concurrent requests")
+			//logger.With(zap.Int32("concurrent_req", inProgressRequestCounter)).Debug("concurrent requests")
 
 			atomic.AddInt32(&inProgressRequestCounter, -1)
 		})
