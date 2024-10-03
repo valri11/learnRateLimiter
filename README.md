@@ -22,6 +22,7 @@ docker compose up --build --force-recreate
 <https://trycatch22.net/counter-sliding-window/>
 <https://blogs.halodoc.io/taming-the-traffic-redis-and-lua-powered-sliding-window-rate-limiter-in-action/>
 <https://redis.io/learn/develop/dotnet/aspnetcore/rate-limiting/sliding-window>
+<https://github.com/ietf-wg-httpapi/ratelimit-headers>
 
 
 
