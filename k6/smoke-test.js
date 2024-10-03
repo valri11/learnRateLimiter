@@ -12,10 +12,33 @@ export const options = {
     http_req_duration: ['p(90) < 200'],
   },
 
+  scenarios: {
+    contacts: {
+      executor: 'ramping-arrival-rate',
+
+      // Start iterations per `timeUnit`
+      startRate: 100,
+      timeUnit: '1s',
+
+      // Pre-allocate necessary VUs.
+      preAllocatedVUs: 150,
+
+      stages: [
+        { target: 200, duration: '10s' },
+        { target: 200, duration: '60s' },
+        { target: 210, duration: '30s' },
+        { target: 220, duration: '30s' },
+        { target: 190, duration: '60s' },
+        { target: 100, duration: '30s' },
+        { target: 30, duration: '30s' },
+      ],
+    },
+  },
+
 //  scenarios: {
 //    contacts: {
 //      executor: 'constant-arrival-rate',
-//      duration: '180s',
+//      duration: '120s',
 //      rate: 200,
 //      timeUnit: '1s',
 //
@@ -24,31 +47,31 @@ export const options = {
 //    },
 //  },
 
-  scenarios: {
-    contacts: {
-      executor: 'ramping-arrival-rate',
-
-      // Start iterations per `timeUnit`
-      startRate: 40,
-      timeUnit: '1s',
-
-      // Pre-allocate necessary VUs.
-      preAllocatedVUs: 150,
-
-      stages: [
-        { target: 50, duration: '30s' },
-        { target: 60, duration: '60s' },
-        { target: 80, duration: '30s' },
-        { target: 90, duration: '30s' },
-        { target: 99, duration: '30s' },
-        { target: 100, duration: '60s' },
-        { target: 150, duration: '60s' },
-        { target: 200, duration: '180s' },
-        { target: 50, duration: '60s' },
-        { target: 30, duration: '60s' },
-      ],
-    },
-  },
+//  scenarios: {
+//    contacts: {
+//      executor: 'ramping-arrival-rate',
+//
+//      // Start iterations per `timeUnit`
+//      startRate: 40,
+//      timeUnit: '1s',
+//
+//      // Pre-allocate necessary VUs.
+//      preAllocatedVUs: 150,
+//
+//      stages: [
+//        { target: 50, duration: '30s' },
+//        { target: 60, duration: '60s' },
+//        { target: 80, duration: '30s' },
+//        { target: 90, duration: '30s' },
+//        { target: 99, duration: '30s' },
+//        { target: 100, duration: '60s' },
+//        { target: 150, duration: '60s' },
+//        { target: 200, duration: '180s' },
+//        { target: 50, duration: '60s' },
+//        { target: 30, duration: '60s' },
+//      ],
+//    },
+//  },
 
 };
 

@@ -47,7 +47,7 @@ func (tb *LocalTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
 }
 
 type RedisTokenBucketLimit struct {
-	Capacity     int32
+	Capacity     int64
 	RefillRateMs int32
 	client       redis.UniversalClient
 	limitKeyName string
@@ -89,7 +89,7 @@ func NewRedisTokenBucketLimit(store config.Store) (*RedisTokenBucketLimit, error
 	}
 
 	rsw := RedisTokenBucketLimit{
-		Capacity:     int32(rateLimitPerSec),
+		Capacity:     int64(rateLimitPerSec),
 		RefillRateMs: int32(1000 / rateLimitPerSec),
 		client:       client,
 		limitKeyName: "tokenBucketLimit",
@@ -98,8 +98,15 @@ func NewRedisTokenBucketLimit(store config.Store) (*RedisTokenBucketLimit, error
 	return &rsw, nil
 }
 
-func (rsw *RedisTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
+func (rsw *RedisTokenBucketLimit) TryPassRequestLimit(ctx context.Context) RequestLimitAllowance {
 	logger := mdlogger.FromContext(ctx)
+
+	res := RequestLimitAllowance{
+		Allowed:        false,
+		Limit:          rsw.Capacity,
+		LimitWindowSec: 1,
+		Remaining:      0,
+	}
 
 	script := `local now = redis.call('TIME')
 local capacity = tonumber(ARGV[1])
@@ -146,7 +153,7 @@ redis.call("SET", key_last_access, new_access_time_ms, "EX", 2)
 
 local request_count = 0;
 
-return {allowed and 0 or 1, capacity - new_tokens}`
+return {allowed and 1 or 0, capacity - new_tokens}`
 
 	ret, err := rsw.client.Eval(ctx, script,
 		[]string{rsw.limitKeyName},
@@ -155,24 +162,27 @@ return {allowed and 0 or 1, capacity - new_tokens}`
 	).Slice()
 	if err != nil {
 		logger.With(zap.Error(err)).Error("request rate limited, check error message")
-		return false
+		return res
 	}
 
-	res := ret[0].(int64)
+	allowed := ret[0].(int64)
 	req_count := ret[1].(int64)
 
-	if res != 0 {
+	if allowed == 0 {
 		logger.
 			With(zap.Int64("req_count", req_count)).
-			With(zap.Int32("limit", rsw.Capacity)).
+			With(zap.Int64("limit", rsw.Capacity)).
 			Warn("breach rate limit")
-		return false
+		return res
 	}
+
+	res.Allowed = true
+	res.Remaining = res.Limit - req_count
 
 	logger.
 		With(zap.Int64("req_count", req_count)).
-		With(zap.Int32("limit", rsw.Capacity)).
+		With(zap.Int64("limit", rsw.Capacity)).
 		Debug("rate limit check")
 
-	return true
+	return res
 }

@@ -7,11 +7,12 @@ server:
   rateLimits:
     serviceConcurrentRequestAllowance: 20
     store:
-      #type: redisTokenBucket
+      type: redisTokenBucket
       #type: redisSlidingWindow
-      type: redisAdaptiveTokenBucket
+      #type: redisAdaptiveTokenBucket
       #type: localAdaptiveTokenBucket
       parameters:
         connection: localhost:6379
         tiers: "50,20ms,30s,10;100,10ms,30s,10;200,5ms,30s,10"
+        rateLimitPerSec: 200
 

@@ -4,14 +4,22 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/valri11/learnRateLimiter/config"
 	metricsApi "go.opentelemetry.io/otel/metric"
 )
 
+type RequestLimitAllowance struct {
+	Allowed        bool
+	Limit          int64
+	Remaining      int64
+	LimitWindowSec int64
+}
+
 type LimitStore interface {
-	TryPassRequestLimit(ctx context.Context) bool
+	TryPassRequestLimit(ctx context.Context) RequestLimitAllowance
 }
 
 func NewLimitStore(store config.Store) (LimitStore, error) {
@@ -58,7 +66,13 @@ func WithRequestRateLimiter(meter metricsApi.Meter, store config.Store) func(htt
 
 			requestStartTime := time.Now()
 
-			if !limitStore.TryPassRequestLimit(ctx) {
+			res := limitStore.TryPassRequestLimit(ctx)
+
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(int(res.Limit)))
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(int(res.Remaining)))
+			w.Header().Set("X-RateLimit-Reset", strconv.Itoa(int(res.LimitWindowSec)))
+
+			if !res.Allowed {
 				//logger := mdlogger.FromContext(r.Context())
 				//logger.With(zap.Int("limit", rateLimitPerSec)).Warn("request rate limited")
 

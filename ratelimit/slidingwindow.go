@@ -14,7 +14,7 @@ import (
 )
 
 type LocalSlidingWindowLimit struct {
-	Limit    int32
+	Limit    int64
 	Requests []int64
 	mx       sync.Mutex
 }
@@ -26,15 +26,22 @@ func NewLocalSlidingWindowLimit(store config.Store) (*LocalSlidingWindowLimit, e
 	}
 
 	sw := LocalSlidingWindowLimit{
-		Limit: int32(rateLimitPerSec),
+		Limit: int64(rateLimitPerSec),
 	}
 	return &sw, nil
 }
 
 var getTimeNowFn = time.Now
 
-func (lws *LocalSlidingWindowLimit) TryPassRequestLimit(ctx context.Context) bool {
+func (lws *LocalSlidingWindowLimit) TryPassRequestLimit(ctx context.Context) RequestLimitAllowance {
 	logger := mdlogger.FromContext(ctx)
+
+	res := RequestLimitAllowance{
+		Allowed:        false,
+		Limit:          lws.Limit,
+		LimitWindowSec: 1,
+		Remaining:      0,
+	}
 
 	lws.mx.Lock()
 	defer lws.mx.Unlock()
@@ -54,23 +61,26 @@ func (lws *LocalSlidingWindowLimit) TryPassRequestLimit(ctx context.Context) boo
 	if int(lws.Limit)-len(lws.Requests) < 1 {
 		logger.
 			With(zap.Int("req_count", len(lws.Requests))).
-			With(zap.Int32("limit", lws.Limit)).
+			With(zap.Int64("limit", lws.Limit)).
 			Warn("breach rate limit")
-		return false
+		return res
 	}
 
 	lws.Requests = append(lws.Requests, nowUnixMicro)
 
+	res.Allowed = true
+	res.Remaining = res.Limit - int64(len(lws.Requests))
+
 	logger.
 		With(zap.Int("req_count", len(lws.Requests))).
-		With(zap.Int32("limit", lws.Limit)).
+		With(zap.Int64("limit", lws.Limit)).
 		Debug("rate limit check")
 
-	return true
+	return res
 }
 
 type RedisSlidingWindowLimit struct {
-	Limit        int32
+	Limit        int64
 	client       redis.UniversalClient
 	limitKeyName string
 }
@@ -102,7 +112,7 @@ func NewRedisSlidingWindowLimit(store config.Store) (*RedisSlidingWindowLimit, e
 	}
 
 	rsw := RedisSlidingWindowLimit{
-		Limit:        int32(rateLimitPerSec),
+		Limit:        int64(rateLimitPerSec),
 		client:       client,
 		limitKeyName: "slidingWindowLimit",
 	}
@@ -111,8 +121,15 @@ func NewRedisSlidingWindowLimit(store config.Store) (*RedisSlidingWindowLimit, e
 }
 
 // redis streams implementation
-func (rsw *RedisSlidingWindowLimit) TryPassRequestLimit(ctx context.Context) bool {
+func (rsw *RedisSlidingWindowLimit) TryPassRequestLimit(ctx context.Context) RequestLimitAllowance {
 	logger := mdlogger.FromContext(ctx)
+
+	res := RequestLimitAllowance{
+		Allowed:        false,
+		Limit:          rsw.Limit,
+		LimitWindowSec: 1,
+		Remaining:      0,
+	}
 
 	script := `local now = redis.call('TIME')
 local window = tonumber(ARGV[1])
@@ -127,12 +144,12 @@ for _, item in ipairs(range) do
 end
 
 if request_count >= max_requests then
-    return {1,request_count} 
+    return {0,request_count} 
 end
 
 redis.call('XADD', key, 'MINID', '~', start_window_id, '*', 'count', 1)
 redis.call('EXPIRE', key, window)
-return {0, request_count+1}`
+return {1, request_count+1}`
 
 	ret, err := rsw.client.Eval(ctx, script,
 		[]string{rsw.limitKeyName},
@@ -141,26 +158,29 @@ return {0, request_count+1}`
 	).Slice()
 	if err != nil {
 		logger.With(zap.Error(err)).Error("request rate limited, check error message")
-		return false
+		return res
 	}
 
-	res := ret[0].(int64)
+	allowed := ret[0].(int64)
 	req_count := ret[1].(int64)
 
-	if res != 0 {
+	if allowed == 0 {
 		logger.
 			With(zap.Int64("req_count", req_count)).
-			With(zap.Int32("limit", rsw.Limit)).
+			With(zap.Int64("limit", rsw.Limit)).
 			Warn("breach rate limit")
-		return false
+		return res
 	}
+
+	res.Allowed = true
+	res.Remaining = res.Limit - req_count
 
 	logger.
 		With(zap.Int64("req_count", req_count)).
-		With(zap.Int32("limit", rsw.Limit)).
+		With(zap.Int64("limit", rsw.Limit)).
 		Debug("rate limit check")
 
-	return true
+	return res
 }
 
 /*

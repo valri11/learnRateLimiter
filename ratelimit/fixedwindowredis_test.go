@@ -20,7 +20,7 @@ func Test_RedisFixedWindow_NoBreach(t *testing.T) {
 	store := config.Store{
 		Parameters: map[string]string{
 			"connection":      s.Addr(),
-			"rateLimitPerSec": "10",
+			"ratelimitpersec": "10",
 		},
 	}
 
@@ -41,7 +41,7 @@ func Test_RedisFixedWindow_NoBreach(t *testing.T) {
 	s.SetTime(refTime)
 
 	res := sw.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		refTime = refTime.Add(1 * time.Millisecond)
@@ -49,7 +49,7 @@ func Test_RedisFixedWindow_NoBreach(t *testing.T) {
 		s.FastForward(1 * time.Millisecond)
 
 		res = sw.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	refTime = refTime.Add(1 * time.Second)
@@ -57,7 +57,7 @@ func Test_RedisFixedWindow_NoBreach(t *testing.T) {
 	s.FastForward(1 * time.Second)
 
 	res = sw.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 }
 
 func Test_RedisFixedWindow_Breach(t *testing.T) {
@@ -67,7 +67,7 @@ func Test_RedisFixedWindow_Breach(t *testing.T) {
 	store := config.Store{
 		Parameters: map[string]string{
 			"connection":      s.Addr(),
-			"rateLimitPerSec": "10",
+			"ratelimitpersec": "10",
 		},
 	}
 
@@ -88,7 +88,7 @@ func Test_RedisFixedWindow_Breach(t *testing.T) {
 	s.SetTime(refTime)
 
 	res := sw.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		refTime = refTime.Add(1 * time.Millisecond)
@@ -96,7 +96,7 @@ func Test_RedisFixedWindow_Breach(t *testing.T) {
 		s.FastForward(1 * time.Millisecond)
 
 		res = sw.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	refTime = refTime.Add(1 * time.Millisecond)
@@ -104,5 +104,5 @@ func Test_RedisFixedWindow_Breach(t *testing.T) {
 	s.FastForward(1 * time.Millisecond)
 
 	res = sw.TryPassRequestLimit(ctx)
-	assert.False(t, res)
+	assert.False(t, res.Allowed)
 }

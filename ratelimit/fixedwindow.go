@@ -15,8 +15,8 @@ import (
 
 type LocalFixedWindowLimit struct {
 	Timestamp int64
-	Limit     int32
-	Counter   int32
+	Limit     int64
+	Counter   int64
 	mx        sync.Mutex
 }
 
@@ -28,20 +28,27 @@ func NewLocalFixedWindowLimit(store config.Store) (*LocalFixedWindowLimit, error
 
 	st := LocalFixedWindowLimit{
 		Timestamp: time.Now().Unix(),
-		Limit:     int32(rateLimitPerSec),
+		Limit:     int64(rateLimitPerSec),
 	}
 	return &st, nil
 }
 
-func (st *LocalFixedWindowLimit) TryPassRequestLimit(ctx context.Context) bool {
+func (st *LocalFixedWindowLimit) TryPassRequestLimit(ctx context.Context) RequestLimitAllowance {
 	st.mx.Lock()
 	defer st.mx.Unlock()
+
+	res := RequestLimitAllowance{
+		Allowed:        false,
+		Limit:          st.Limit,
+		LimitWindowSec: 1,
+		Remaining:      0,
+	}
 
 	tsNowSeconds := getTimeNowFn().Unix()
 
 	if tsNowSeconds == st.Timestamp {
 		if st.Counter >= st.Limit {
-			return false
+			return res
 		}
 	} else {
 		st.Timestamp = tsNowSeconds
@@ -50,14 +57,17 @@ func (st *LocalFixedWindowLimit) TryPassRequestLimit(ctx context.Context) bool {
 
 	st.Counter++
 
-	return true
+	res.Allowed = true
+	res.Remaining = res.Limit - st.Counter
+
+	return res
 }
 
 type RedisFixedWindowLimit struct {
 	store        config.Store
 	Timestamp    int64
-	Limit        int32
-	Counter      int32
+	Limit        int64
+	Counter      int64
 	client       redis.UniversalClient
 	limitKeyName string
 }
@@ -91,7 +101,7 @@ func NewRedisFixedWindowLimit(store config.Store) (*RedisFixedWindowLimit, error
 	st := RedisFixedWindowLimit{
 		store:        store,
 		Timestamp:    time.Now().Unix(),
-		Limit:        int32(rateLimitPerSec),
+		Limit:        int64(rateLimitPerSec),
 		client:       client,
 		limitKeyName: "fixedWindowLimit",
 	}
@@ -99,8 +109,15 @@ func NewRedisFixedWindowLimit(store config.Store) (*RedisFixedWindowLimit, error
 	return &st, nil
 }
 
-func (st *RedisFixedWindowLimit) TryPassRequestLimit(ctx context.Context) bool {
+func (st *RedisFixedWindowLimit) TryPassRequestLimit(ctx context.Context) RequestLimitAllowance {
 	logger := mdlogger.FromContext(ctx)
+
+	res := RequestLimitAllowance{
+		Allowed:        false,
+		Limit:          st.Limit,
+		LimitWindowSec: 1,
+		Remaining:      0,
+	}
 
 	script := `local current
 current = redis.call("incr",KEYS[1])
@@ -110,48 +127,27 @@ end
 return current
 `
 
-	val, err := st.client.Eval(ctx, script, []string{st.limitKeyName}).Int()
+	counter, err := st.client.Eval(ctx, script, []string{st.limitKeyName}).Int64()
 	if err != nil {
 		logger.With(zap.Error(err)).Error("request rate limited, check error message")
-		return false
+		return res
 	}
 
-	if val > int(st.Limit) {
+	if counter > st.Limit {
 		logger.
-			With(zap.Int("req_count", val)).
-			With(zap.Int32("limit", st.Limit)).
+			With(zap.Int64("req_count", counter)).
+			With(zap.Int64("limit", st.Limit)).
 			Warn("breach rate limit")
-		return false
+		return res
 	}
 
 	logger.
-		With(zap.Int("req_count", val)).
-		With(zap.Int32("limit", st.Limit)).
+		With(zap.Int64("req_count", counter)).
+		With(zap.Int64("limit", st.Limit)).
 		Debug("rate limit check")
 
-	return true
+	res.Allowed = true
+	res.Remaining = res.Limit - counter
 
-	/*
-		pipe := st.client.TxPipeline()
-
-		incr := pipe.Incr(ctx, st.limitKeyName)
-		//pipe.Expire(ctx, st.limitKeyName, 1*time.Second)
-		pipe.ExpireNX(ctx, st.limitKeyName, 1*time.Second)
-
-		_, err := pipe.Exec(ctx)
-		if err != nil {
-			logger.With(zap.Error(err)).Error("request rate limited, check error message")
-			return false
-		}
-
-		if incr.Val() > int64(st.limit.Limit) {
-			logger.
-				With(zap.Int64("req_count", incr.Val())).
-				With(zap.Int32("limit", st.limit.Limit)).
-				Warn("breach rate limit")
-			return false
-		}
-
-		return true
-	*/
+	return res
 }

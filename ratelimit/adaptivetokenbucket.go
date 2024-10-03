@@ -91,11 +91,17 @@ func NewLocalAdaptiveTokenBucketLimit(store config.Store) (*LocalAdaptiveTokenBu
 	return &tbl, nil
 }
 
-func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
+func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context) RequestLimitAllowance {
 	st.mx.Lock()
 	defer st.mx.Unlock()
 
 	logger := mdlogger.FromContext(ctx)
+
+	res := RequestLimitAllowance{
+		Allowed:        false,
+		LimitWindowSec: 1,
+		Remaining:      0,
+	}
 
 	tsNow := getTimeNowFn().UnixMilli()
 
@@ -170,6 +176,8 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 
 	st.UsedTokens = min(int64(currentTier.Capacity), st.UsedTokens+1)
 
+	res.Limit = currentTier.Capacity
+
 	if !allowed {
 		st.RejectCounter++
 		/*
@@ -179,9 +187,12 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 				With(zap.Int64("window_reject_count", st.RejectCounter)).
 				Warn("breach rate limit")
 		*/
-		return false
+		return res
 	}
 	st.AllowCounter++
+
+	res.Allowed = true
+	res.Remaining = res.Limit - st.UsedTokens
 
 	/*
 		logger.
@@ -191,7 +202,7 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 			Debug("rate limit check")
 	*/
 
-	return true
+	return res
 }
 
 type RedisAdaptiveTokenBucketLimit struct {
@@ -279,9 +290,14 @@ func NewRedisAdaptiveTokenBucketLimit(store config.Store) (*RedisAdaptiveTokenBu
 	return &tbl, nil
 }
 
-func (st *RedisAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
-
+func (st *RedisAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context) RequestLimitAllowance {
 	logger := mdlogger.FromContext(ctx)
+
+	res := RequestLimitAllowance{
+		Allowed:        false,
+		LimitWindowSec: 1,
+		Remaining:      0,
+	}
 
 	script := `local now = redis.call('TIME')
 local key_bucket = KEYS[1] .. "_bucket"
@@ -399,7 +415,7 @@ redis.call('HMSET', key_bucket,
 
 redis.call('EXPIRE', key_bucket, 2 * currentTier['windowDuration'] / 1000)
 
-return {allowed and 0 or 1, usedTokens, currentTierIdx - 1, prevTierIdx - 1, szTiers, cjson.encode(bucket)}
+return {allowed and 1 or 0, usedTokens, currentTierIdx - 1, prevTierIdx - 1, szTiers, cjson.encode(bucket)}
 `
 
 	tiersArgs := make([]any, 0)
@@ -418,10 +434,10 @@ return {allowed and 0 or 1, usedTokens, currentTierIdx - 1, prevTierIdx - 1, szT
 	).Slice()
 	if err != nil {
 		logger.With(zap.Error(err)).Error("request rate limited, check error message")
-		return false
+		return res
 	}
 
-	res := ret[0].(int64)
+	allowed := ret[0].(int64)
 	req_count := ret[1].(int64)
 	currentTierIdx := ret[2].(int64)
 	prevTierIdx := ret[3].(int64)
@@ -435,14 +451,16 @@ return {allowed and 0 or 1, usedTokens, currentTierIdx - 1, prevTierIdx - 1, szT
 			Warn("change limit tier")
 	}
 
-	if res != 0 {
+	res.Limit = st.Tiers[currentTierIdx].Capacity
+
+	if allowed == 0 {
 		/*
 			logger.
 				With(zap.Int64("req_count", req_count)).
 				With(zap.Int64("limit", st.Tiers[currentTierIdx].Capacity)).
 				Warn("breach rate limit")
 		*/
-		return false
+		return res
 	}
 
 	/*
@@ -452,5 +470,8 @@ return {allowed and 0 or 1, usedTokens, currentTierIdx - 1, prevTierIdx - 1, szT
 			Debug("rate limit check")
 	*/
 
-	return true
+	res.Allowed = true
+	res.Remaining = res.Limit - req_count
+
+	return res
 }

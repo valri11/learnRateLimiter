@@ -16,7 +16,7 @@ import (
 func Test_SlidingWindow_NoBreach(t *testing.T) {
 	store := config.Store{
 		Parameters: map[string]string{
-			"rateLimitPerSec": "10",
+			"ratelimitpersec": "10",
 		},
 	}
 
@@ -36,23 +36,23 @@ func Test_SlidingWindow_NoBreach(t *testing.T) {
 	refTime := time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 	getTimeNowFn = func() time.Time { return refTime }
 	res := sw.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 		res = sw.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Second) }
 	res = sw.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 }
 
 func Test_SlidingWindow_Breach(t *testing.T) {
 	store := config.Store{
 		Parameters: map[string]string{
-			"rateLimitPerSec": "10",
+			"ratelimitpersec": "10",
 		},
 	}
 
@@ -72,15 +72,15 @@ func Test_SlidingWindow_Breach(t *testing.T) {
 	refTime := time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 	getTimeNowFn = func() time.Time { return refTime }
 	res := sw.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 		res = sw.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 	res = sw.TryPassRequestLimit(ctx)
-	assert.False(t, res)
+	assert.False(t, res.Allowed)
 }

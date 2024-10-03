@@ -90,17 +90,17 @@ func Test_LocalAdaptiveTokenBucket_NoBreach(t *testing.T) {
 	refTime := time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 	getTimeNowFn = func() time.Time { return refTime }
 	res := lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 		res = lm.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Second) }
 	res = lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 }
 
 func Test_LocalAdaptiveTokenBucket_Breach(t *testing.T) {
@@ -127,17 +127,17 @@ func Test_LocalAdaptiveTokenBucket_Breach(t *testing.T) {
 	refTime := time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 	getTimeNowFn = func() time.Time { return refTime }
 	res := lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 		res = lm.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 	res = lm.TryPassRequestLimit(ctx)
-	assert.False(t, res)
+	assert.False(t, res.Allowed)
 }
 
 func Test_LocalAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
@@ -164,22 +164,22 @@ func Test_LocalAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
 	refTime := time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 	getTimeNowFn = func() time.Time { return refTime }
 	res := lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 		res = lm.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Millisecond) }
 	res = lm.TryPassRequestLimit(ctx)
-	assert.False(t, res)
+	assert.False(t, res.Allowed)
 
 	// after 60sec - tier changed
 	getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Minute) }
 	res = lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 }
 
 func Test_RedisAdaptiveTokenBucket_NoBreach(t *testing.T) {
@@ -211,7 +211,7 @@ func Test_RedisAdaptiveTokenBucket_NoBreach(t *testing.T) {
 	s.SetTime(refTime)
 
 	res := lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		refTime = refTime.Add(1 * time.Millisecond)
@@ -219,7 +219,7 @@ func Test_RedisAdaptiveTokenBucket_NoBreach(t *testing.T) {
 		s.FastForward(1 * time.Millisecond)
 
 		res = lm.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	refTime = refTime.Add(1 * time.Second)
@@ -227,7 +227,7 @@ func Test_RedisAdaptiveTokenBucket_NoBreach(t *testing.T) {
 	s.FastForward(1 * time.Second)
 
 	res = lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 }
 
 func Test_RedisAdaptiveTokenBucket_Breach(t *testing.T) {
@@ -259,7 +259,7 @@ func Test_RedisAdaptiveTokenBucket_Breach(t *testing.T) {
 	s.SetTime(refTime)
 
 	res := lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		refTime = refTime.Add(1 * time.Millisecond)
@@ -267,7 +267,7 @@ func Test_RedisAdaptiveTokenBucket_Breach(t *testing.T) {
 		s.FastForward(1 * time.Millisecond)
 
 		res = lm.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	refTime = refTime.Add(1 * time.Millisecond)
@@ -275,7 +275,7 @@ func Test_RedisAdaptiveTokenBucket_Breach(t *testing.T) {
 	s.FastForward(1 * time.Millisecond)
 
 	res = lm.TryPassRequestLimit(ctx)
-	assert.False(t, res)
+	assert.False(t, res.Allowed)
 }
 
 func Test_RedisAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
@@ -307,7 +307,7 @@ func Test_RedisAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
 	s.SetTime(refTime)
 
 	res := lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 
 	for i := 1; i < 10; i++ {
 		refTime = refTime.Add(1 * time.Millisecond)
@@ -315,7 +315,7 @@ func Test_RedisAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
 		s.FastForward(1 * time.Millisecond)
 
 		res = lm.TryPassRequestLimit(ctx)
-		assert.True(t, res)
+		assert.True(t, res.Allowed)
 	}
 
 	refTime = refTime.Add(1 * time.Millisecond)
@@ -323,7 +323,7 @@ func Test_RedisAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
 	s.FastForward(1 * time.Millisecond)
 
 	res = lm.TryPassRequestLimit(ctx)
-	assert.False(t, res)
+	assert.False(t, res.Allowed)
 
 	// after 60sec - tier changed
 	refTime = refTime.Add(1 * time.Minute)
@@ -331,5 +331,5 @@ func Test_RedisAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
 	s.FastForward(1 * time.Minute)
 
 	res = lm.TryPassRequestLimit(ctx)
-	assert.True(t, res)
+	assert.True(t, res.Allowed)
 }
