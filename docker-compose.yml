@@ -1,5 +1,6 @@
 services:
   app1:
+    image: appratelimiter
     build: .
     configs:
       - source: app_config
@@ -15,7 +16,7 @@ services:
       - redis
 
   app2:
-    build: .
+    image: appratelimiter
     configs:
       - source: app_config
         target: /app.yml
@@ -27,6 +28,7 @@ services:
       "--port=6092",
     ]
     depends_on:
+      - app1
       - redis
 
   appgateway:
@@ -42,6 +44,8 @@ services:
 
   redis:
     image: "redis:alpine"
+    ports:
+      - "6379:6379"
 
   oltp_collector:
     image: "grafana/alloy:latest"
@@ -56,6 +60,7 @@ services:
     ]
     ports:
       - "12345:12345"
+      - "4317:4317"
   
   tempo:
     image: grafana/tempo:2.5.0
@@ -64,7 +69,7 @@ services:
         target: /etc/tempo.yaml
     ports:
       - "3200:3200"
-      - "4317:4317"
+        #- "4317:4317"
       - "4318:4318"
       - "9411:9411"
       - "55680:55680"
@@ -82,7 +87,7 @@ services:
       - "9009:9009"
 
   grafana:
-    image: grafana/grafana:11.1.4
+    image: grafana/grafana:11.2.2
     volumes:
       - "./grafana/provisioning:/etc/grafana/provisioning"
       - "./grafana/dashboards:/var/lib/grafana/dashboards"

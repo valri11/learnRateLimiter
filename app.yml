@@ -8,5 +8,8 @@ server:
     globalReqRateLimitPerSec: 800
     serviceConcurrentRequestAllowance: 10
     store:
-      type: redis
-      connection: redis:6379
+      #type: redisFixedWindow
+      type: redisAdaptiveTokenBucket
+      parameters:
+        connection: redis:6379
+        tiers: "50,20ms,30s,10;100,10ms,30s,10;200,5ms,30s,10"

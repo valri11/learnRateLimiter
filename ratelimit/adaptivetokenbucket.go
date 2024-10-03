@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/redis/go-redis/extra/redisotel/v9"
+	"github.com/redis/go-redis/v9"
 	mdlogger "github.com/valri11/go-servicepack/logger"
 	"github.com/valri11/learnRateLimiter/config"
 	"go.uber.org/zap"
@@ -101,7 +103,10 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 	//windowTokens := st.Tiers[st.CurrentTierIdx].WindowDuration / st.Tiers[st.CurrentTierIdx].RefillInterval
 	windowTokens := (tsNow - st.WindowStartTs) / st.Tiers[st.CurrentTierIdx].RefillInterval
 	if tsNow-st.WindowStartTs >= st.Tiers[st.CurrentTierIdx].WindowDuration {
-		errorRate := int(100 * st.RejectCounter / windowTokens)
+		errorRate := 0
+		if windowTokens > 0 {
+			errorRate = int(100 * st.RejectCounter / windowTokens)
+		}
 		if errorRate >= st.Tiers[st.CurrentTierIdx].NextTierRejectRate {
 			// client request rate is above error threshold
 			// we advance to a next tier with a higher rate limit
@@ -121,7 +126,10 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 		} else {
 			// try to downgrade tier to lesser rate
 			if st.CurrentTierIdx != 0 {
-				windowUtilizationRate := float32(st.AllowCounter) / float32(windowTokens)
+				windowUtilizationRate := 0.0
+				if windowTokens > 0 {
+					windowUtilizationRate = float64(st.AllowCounter) / float64(windowTokens)
+				}
 				if windowUtilizationRate < 0.1 {
 					st.CurrentTierIdx = 0
 					logger.
@@ -187,10 +195,12 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 }
 
 type RedisAdaptiveTokenBucketLimit struct {
+	Tiers        []RateLimitTier
+	client       redis.UniversalClient
+	limitKeyName string
 }
 
 func NewRedisAdaptiveTokenBucketLimit(store config.Store, rateLimitPerSec int) (*RedisAdaptiveTokenBucketLimit, error) {
-
 	// parse tiers
 	tiers := make([]RateLimitTier, 0)
 
@@ -240,8 +250,30 @@ func NewRedisAdaptiveTokenBucketLimit(store config.Store, rateLimitPerSec int) (
 		})
 	}
 
+	ctx := context.Background()
+	client := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs: []string{store.Parameters["connection"]},
+	})
+
+	// Enable tracing instrumentation.
+	if err := redisotel.InstrumentTracing(client); err != nil {
+		return nil, err
+	}
+
+	// Enable metrics instrumentation.
+	if err := redisotel.InstrumentMetrics(client); err != nil {
+		return nil, err
+	}
+
+	err := client.Ping(ctx).Err()
+	if err != nil {
+		return nil, err
+	}
+
 	tbl := RedisAdaptiveTokenBucketLimit{
-		//Tiers: tiers,
+		Tiers:        tiers,
+		client:       client,
+		limitKeyName: "adaptiveTokenBucketLimit",
 	}
 
 	return &tbl, nil
@@ -249,5 +281,176 @@ func NewRedisAdaptiveTokenBucketLimit(store config.Store, rateLimitPerSec int) (
 
 func (st *RedisAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
 
-	return false
+	logger := mdlogger.FromContext(ctx)
+
+	script := `local now = redis.call('TIME')
+local key_bucket = KEYS[1] .. "_bucket"
+local szTiers = tonumber(ARGV[1])
+
+local now_ms = math.floor(now[1] * 1000 + now[2] / 1000);
+
+local tiers = {}
+
+for i=1,szTiers do
+	local tier = {}
+	tier['capacity'] = tonumber(ARGV[1 + (i-1)*4 + 1])
+	tier['refillInterval'] = tonumber(ARGV[1 + (i-1)*4 + 2])
+	tier['windowDuration'] = tonumber(ARGV[1 + (i-1)*4 + 3])
+	tier['nextTierRejectRate'] = tonumber(ARGV[1 + (i-1)*4 + 4])
+
+	tiers[i] = tier
+end
+
+local bucketList = redis.call('HMGET', key_bucket, 
+	'currentTierIdx', 'windowStartTs', 'rejectCounter',
+	'allowCounter', 'lastRefillTs', 'usedTokens')
+
+local currentTierIdx = tonumber(bucketList[1]) or 1
+local windowStartTs = tonumber(bucketList[2]) or 0
+local rejectCounter = tonumber(bucketList[3]) or 0
+local allowCounter = tonumber(bucketList[4]) or 0
+local lastRefillTs = tonumber(bucketList[5]) or 0
+local usedTokens = tonumber(bucketList[6]) or 0
+
+local prevTierIdx = currentTierIdx
+
+local windowTokens = math.floor((now_ms - windowStartTs) / tiers[currentTierIdx]['refillInterval'])
+local errorRate = 0
+if windowTokens > 0 then
+	errorRate = 100 * rejectCounter / windowTokens
+end
+if now_ms-windowStartTs >= tiers[currentTierIdx]['windowDuration'] then
+	if errorRate >= tiers[currentTierIdx]['nextTierRejectRate'] then
+		if currentTierIdx+1 <= szTiers then
+            currentTierIdx = currentTierIdx + 1
+            -- start new tier
+            windowStartTs = now_ms
+            lastRefillTs = 0
+            rejectCounter = 0
+            allowCounter = 0
+            usedTokens = 0
+        end
+	else
+		-- try to downgrade tier to lesser rate
+		if currentTierIdx ~= 1 then
+            local windowUtilizationRate = 0
+			if windowTokens > 0 then
+				windowUtilizationRate = allowCounter / windowTokens
+			end
+            if windowUtilizationRate < 0.1 then
+                currentTierIdx = 1
+            elseif windowUtilizationRate < 0.8 then
+                currentTierIdx = currentTierIdx - 1
+            end
+        end
+
+        windowStartTs = now_ms
+        lastRefillTs = 0
+        rejectCounter = 0
+    	allowCounter = 0
+        usedTokens = 0
+	end
+end
+
+local currentTier = tiers[currentTierIdx]
+
+-- how many tokens needs to be added since last refill
+local elapsed = now_ms - lastRefillTs
+local addTokens = math.floor(elapsed / currentTier['refillInterval'])
+
+if addTokens > 0 then
+	usedTokens = math.max(0, usedTokens - addTokens)
+    if addTokens < currentTier['capacity'] then
+        lastRefillTs = lastRefillTs + addTokens * currentTier['refillInterval']
+    else
+        lastRefillTs = now_ms
+    end
+end
+
+-- check if request allowed
+local allowed = usedTokens < currentTier['capacity']
+
+usedTokens = math.min(currentTier['capacity'], usedTokens + 1)
+
+if allowed then
+	allowCounter = allowCounter + 1
+else
+	rejectCounter = rejectCounter + 1
+end
+
+local bucket = {}
+bucket['currentTierIdx'] = currentTierIdx
+bucket['windowStartTs'] = windowStartTs
+bucket['now_ms'] = now_ms
+bucket['rejectCounter'] = rejectCounter
+bucket['allowCounter'] = allowCounter
+bucket['lastRefillTs'] = lastRefillTs
+bucket['usedTokens'] = usedTokens
+bucket['windowTokens'] = windowTokens
+bucket['errorRate'] = errorRate
+
+redis.call('HMSET', key_bucket, 
+	'currentTierIdx', currentTierIdx,
+	'windowStartTs', windowStartTs,
+	'rejectCounter', rejectCounter,
+	'allowCounter', allowCounter,
+	'lastRefillTs', lastRefillTs,
+	'usedTokens', usedTokens)
+
+redis.call('EXPIRE', key_bucket, 2 * currentTier['windowDuration'] / 1000)
+
+return {allowed and 0 or 1, usedTokens, currentTierIdx - 1, prevTierIdx - 1, szTiers, cjson.encode(bucket)}
+`
+
+	tiersArgs := make([]any, 0)
+	tiersArgs = append(tiersArgs, len(st.Tiers))
+	for _, t := range st.Tiers {
+		tiersArgs = append(tiersArgs, t.Capacity)
+		tiersArgs = append(tiersArgs, t.RefillInterval)
+		tiersArgs = append(tiersArgs, t.WindowDuration)
+		tiersArgs = append(tiersArgs, int64(t.NextTierRejectRate))
+	}
+
+	ret, err := st.client.Eval(ctx, script,
+		[]string{st.limitKeyName},
+		//len(st.Tiers),
+		tiersArgs...,
+	).Slice()
+	if err != nil {
+		logger.With(zap.Error(err)).Error("request rate limited, check error message")
+		return false
+	}
+
+	res := ret[0].(int64)
+	req_count := ret[1].(int64)
+	currentTierIdx := ret[2].(int64)
+	prevTierIdx := ret[3].(int64)
+
+	if currentTierIdx != prevTierIdx {
+		logger.
+			With(zap.Int64("req_count", req_count)).
+			With(zap.Int64("prevTierIdx", prevTierIdx)).
+			With(zap.Int64("currentTierIdx", currentTierIdx)).
+			With(zap.Int64("limit", st.Tiers[currentTierIdx].Capacity)).
+			Warn("change limit tier")
+	}
+
+	if res != 0 {
+		/*
+			logger.
+				With(zap.Int64("req_count", req_count)).
+				With(zap.Int64("limit", st.Tiers[currentTierIdx].Capacity)).
+				Warn("breach rate limit")
+		*/
+		return false
+	}
+
+	/*
+		logger.
+			With(zap.Int64("req_count", req_count)).
+			With(zap.Int64("limit", st.Tiers[currentTierIdx].Capacity)).
+			Debug("rate limit check")
+	*/
+
+	return true
 }

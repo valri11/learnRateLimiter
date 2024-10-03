@@ -1,0 +1,47 @@
+services:
+  app1:
+    image: appratelimiter
+    build: .
+    configs:
+      - source: app_config
+        target: /app.yml
+    command: [
+      "/learnRateLimiter",
+      "server",
+      "--config=/app.yml", 
+      "--telemetry-collector=oltp_collector:4317",
+      "--port=6091",
+    ]
+
+  app2:
+    image: appratelimiter
+    configs:
+      - source: app_config
+        target: /app.yml
+    command: [
+      "/learnRateLimiter",
+      "server",
+      "--config=/app.yml", 
+      "--telemetry-collector=oltp_collector:4317",
+      "--port=6092",
+    ]
+    depends_on:
+      - app1
+
+  appgateway:
+    image: "nginx"
+    configs:
+      - source: nginx_config
+        target: /etc/nginx/conf.d/default.conf
+    depends_on:
+      - app1
+      - app2
+    ports:
+      - "6090:6090"
+
+configs:
+  app_config:
+    file: ./app.yml
+  nginx_config:
+    file: ./nginx.conf
+

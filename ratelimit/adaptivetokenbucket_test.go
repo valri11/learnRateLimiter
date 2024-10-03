@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/assert"
 	mdlogger "github.com/valri11/go-servicepack/logger"
 	"github.com/valri11/learnRateLimiter/config"
@@ -179,8 +180,163 @@ func Test_LocalAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
 	res = lm.TryPassRequestLimit(ctx)
 	assert.False(t, res)
 
-	// after 60sec - tier window passed
+	// after 60sec - tier changed
 	getTimeNowFn = func() time.Time { return refTime.Add(1 * time.Minute) }
+	res = lm.TryPassRequestLimit(ctx)
+	assert.True(t, res)
+}
+
+func Test_RedisAdaptiveTokenBucket_NoBreach(t *testing.T) {
+
+	s := miniredis.RunT(t)
+
+	store := config.Store{
+		Type: "redisAdaptiveTokenBucket",
+		Parameters: map[string]string{
+			"tiers":      "10,100ms,1m,10;20,50ms,1m,10;",
+			"connection": s.Addr(),
+		},
+	}
+
+	rateLimitPerSecUnused := 0
+	lm, err := NewRedisAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	assert.NoError(t, err)
+
+	logger, err := mdlogger.New(zapcore.DebugLevel, true)
+	if err != nil {
+		log.Fatalf("ERR: %v", err)
+		return
+	}
+	defer logger.Sync()
+
+	ctx := context.Background()
+	ctx = mdlogger.NewContext(ctx, logger)
+
+	refTime := time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+	s.SetTime(refTime)
+
+	res := lm.TryPassRequestLimit(ctx)
+	assert.True(t, res)
+
+	for i := 1; i < 10; i++ {
+		refTime = refTime.Add(1 * time.Millisecond)
+		s.SetTime(refTime)
+		s.FastForward(1 * time.Millisecond)
+
+		res = lm.TryPassRequestLimit(ctx)
+		assert.True(t, res)
+	}
+
+	refTime = refTime.Add(1 * time.Second)
+	s.SetTime(refTime)
+	s.FastForward(1 * time.Second)
+
+	res = lm.TryPassRequestLimit(ctx)
+	assert.True(t, res)
+}
+
+func Test_RedisAdaptiveTokenBucket_Breach(t *testing.T) {
+
+	s := miniredis.RunT(t)
+
+	store := config.Store{
+		Type: "redisAdaptiveTokenBucket",
+		Parameters: map[string]string{
+			"tiers":      "10,100ms,1m,10;20,50ms,1m,10;",
+			"connection": s.Addr(),
+		},
+	}
+
+	rateLimitPerSecUnused := 0
+	lm, err := NewRedisAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	assert.NoError(t, err)
+
+	logger, err := mdlogger.New(zapcore.DebugLevel, true)
+	if err != nil {
+		log.Fatalf("ERR: %v", err)
+		return
+	}
+	defer logger.Sync()
+
+	ctx := context.Background()
+	ctx = mdlogger.NewContext(ctx, logger)
+
+	refTime := time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+	s.SetTime(refTime)
+
+	res := lm.TryPassRequestLimit(ctx)
+	assert.True(t, res)
+
+	for i := 1; i < 10; i++ {
+		refTime = refTime.Add(1 * time.Millisecond)
+		s.SetTime(refTime)
+		s.FastForward(1 * time.Millisecond)
+
+		res = lm.TryPassRequestLimit(ctx)
+		assert.True(t, res)
+	}
+
+	refTime = refTime.Add(1 * time.Millisecond)
+	s.SetTime(refTime)
+	s.FastForward(1 * time.Millisecond)
+
+	res = lm.TryPassRequestLimit(ctx)
+	assert.False(t, res)
+}
+
+func Test_RedisAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
+
+	s := miniredis.RunT(t)
+
+	store := config.Store{
+		Type: "redisAdaptiveTokenBucket",
+		Parameters: map[string]string{
+			"tiers":      "10,100ms,1m,10;20,50ms,1m,10;",
+			"connection": s.Addr(),
+		},
+	}
+
+	rateLimitPerSecUnused := 0
+	lm, err := NewRedisAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	assert.NoError(t, err)
+
+	logger, err := mdlogger.New(zapcore.DebugLevel, true)
+	if err != nil {
+		log.Fatalf("ERR: %v", err)
+		return
+	}
+	defer logger.Sync()
+
+	ctx := context.Background()
+	ctx = mdlogger.NewContext(ctx, logger)
+
+	refTime := time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+	s.SetTime(refTime)
+
+	res := lm.TryPassRequestLimit(ctx)
+	assert.True(t, res)
+
+	for i := 1; i < 10; i++ {
+		refTime = refTime.Add(1 * time.Millisecond)
+		s.SetTime(refTime)
+		s.FastForward(1 * time.Millisecond)
+
+		res = lm.TryPassRequestLimit(ctx)
+		assert.True(t, res)
+	}
+
+	refTime = refTime.Add(1 * time.Millisecond)
+	s.SetTime(refTime)
+	s.FastForward(1 * time.Millisecond)
+
+	res = lm.TryPassRequestLimit(ctx)
+	assert.False(t, res)
+
+	// after 60sec - tier changed
+	refTime = refTime.Add(1 * time.Minute)
+	s.SetTime(refTime)
+	s.FastForward(1 * time.Minute)
+
 	res = lm.TryPassRequestLimit(ctx)
 	assert.True(t, res)
 }
