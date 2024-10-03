@@ -21,7 +21,7 @@ type LocalFixedWindowLimit struct {
 }
 
 func NewLocalFixedWindowLimit(store config.Store) (*LocalFixedWindowLimit, error) {
-	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["ratelimitpersec"])
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ type RedisFixedWindowLimit struct {
 }
 
 func NewRedisFixedWindowLimit(store config.Store) (*RedisFixedWindowLimit, error) {
-	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["ratelimitpersec"])
 	if err != nil {
 		return nil, err
 	}

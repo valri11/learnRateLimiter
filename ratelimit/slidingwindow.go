@@ -20,7 +20,7 @@ type LocalSlidingWindowLimit struct {
 }
 
 func NewLocalSlidingWindowLimit(store config.Store) (*LocalSlidingWindowLimit, error) {
-	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["ratelimitpersec"])
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ type RedisSlidingWindowLimit struct {
 }
 
 func NewRedisSlidingWindowLimit(store config.Store) (*RedisSlidingWindowLimit, error) {
-	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["ratelimitpersec"])
 	if err != nil {
 		return nil, err
 	}

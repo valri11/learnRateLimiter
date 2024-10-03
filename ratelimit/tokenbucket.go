@@ -54,7 +54,7 @@ type RedisTokenBucketLimit struct {
 }
 
 func NewRedisTokenBucketLimit(store config.Store) (*RedisTokenBucketLimit, error) {
-	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["ratelimitpersec"])
 	if err != nil {
 		return nil, err
 	}
