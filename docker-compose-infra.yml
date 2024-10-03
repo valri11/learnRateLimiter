@@ -47,8 +47,8 @@ services:
   grafana:
     image: grafana/grafana:11.2.2
     volumes:
-      - "./grafana/provisioning:/etc/grafana/provisioning"
-      - "./grafana/dashboards:/var/lib/grafana/dashboards"
+      - "./infra/grafana/provisioning:/etc/grafana/provisioning"
+      - "./infra/grafana/dashboards:/var/lib/grafana/dashboards"
     ports:
       - "3000:3000"
     environment:
@@ -62,11 +62,11 @@ configs:
   app_config:
     file: ./app.yml
   alloy_config:
-    file: ./config.alloy
+    file: ./infra/configs/config.alloy
   tempo_config:
-    file: ./tempo.yml
+    file: ./infra/configs/tempo.yml
   mimir_config:
-    file: ./mimir.yaml
+    file: ./infra/configs/mimir.yaml
   nginx_config:
-    file: ./nginx.conf
+    file: ./infra/configs/nginx.conf
 

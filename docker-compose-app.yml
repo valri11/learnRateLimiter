@@ -43,5 +43,5 @@ configs:
   app_config:
     file: ./app.yml
   nginx_config:
-    file: ./nginx.conf
+    file: ./infra/configs/nginx.conf
 
