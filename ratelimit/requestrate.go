@@ -42,7 +42,7 @@ func WithRequestRateLimiter(meter metricsApi.Meter, store config.Store) func(htt
 		"ratelimiter_check_duration",
 		metricsApi.WithDescription("Rate limiter check duration"),
 		metricsApi.WithUnit("ms"),
-		metricsApi.WithExplicitBucketBoundaries([]float64{0, 1, 2, 4, 6, 10, 20, 100}...),
+		metricsApi.WithExplicitBucketBoundaries([]float64{1, 2, 3, 4, 5, 10, 20, 100, 250}...),
 	)
 	if err != nil {
 		panic(err)

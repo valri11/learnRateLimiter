@@ -14,7 +14,7 @@ func WithConcurrentRequestRateLimiter(meter metricsApi.Meter, concurrentRequestA
 	concurrentReqMeter, err := meter.Int64Histogram(
 		"concurrent_req",
 		metricsApi.WithDescription("Concurrent requests"),
-		metricsApi.WithExplicitBucketBoundaries([]float64{0, 1, 3, 9, 15, 30, 90, 300}...),
+		metricsApi.WithExplicitBucketBoundaries([]float64{1, 3, 9, 15, 30, 90, 300}...),
 	)
 	if err != nil {
 		panic(err)
