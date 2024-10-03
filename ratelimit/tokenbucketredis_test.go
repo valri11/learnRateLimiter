@@ -14,17 +14,16 @@ import (
 )
 
 func Test_RedisTokenBucketWindow_NoBreach(t *testing.T) {
-	limitPerSec := 10
-
 	s := miniredis.RunT(t)
 
 	store := config.Store{
 		Parameters: map[string]string{
-			"connection": s.Addr(),
+			"connection":      s.Addr(),
+			"rateLimitPerSec": "10",
 		},
 	}
 
-	sw, err := NewRedisTokenBucketLimit(store, limitPerSec)
+	sw, err := NewRedisTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -61,17 +60,17 @@ func Test_RedisTokenBucketWindow_NoBreach(t *testing.T) {
 }
 
 func Test_RedisTokenBucket_Breach(t *testing.T) {
-	limitPerSec := 10
 
 	s := miniredis.RunT(t)
 
 	store := config.Store{
 		Parameters: map[string]string{
-			"connection": s.Addr(),
+			"connection":      s.Addr(),
+			"rateLimitPerSec": "10",
 		},
 	}
 
-	sw, err := NewRedisTokenBucketLimit(store, limitPerSec)
+	sw, err := NewRedisTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -108,17 +107,16 @@ func Test_RedisTokenBucket_Breach(t *testing.T) {
 }
 
 func Test_RedisTokenBucket_NoBreachAfterRefill(t *testing.T) {
-	limitPerSec := 10
-
 	s := miniredis.RunT(t)
 
 	store := config.Store{
 		Parameters: map[string]string{
-			"connection": s.Addr(),
+			"connection":      s.Addr(),
+			"rateLimitPerSec": "10",
 		},
 	}
 
-	sw, err := NewRedisTokenBucketLimit(store, limitPerSec)
+	sw, err := NewRedisTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)

@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -19,7 +20,12 @@ type LocalFixedWindowLimit struct {
 	mx        sync.Mutex
 }
 
-func NewLocalFixedWindowLimit(rateLimitPerSec int) (*LocalFixedWindowLimit, error) {
+func NewLocalFixedWindowLimit(store config.Store) (*LocalFixedWindowLimit, error) {
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	if err != nil {
+		return nil, err
+	}
+
 	st := LocalFixedWindowLimit{
 		Timestamp: time.Now().Unix(),
 		Limit:     int32(rateLimitPerSec),
@@ -56,7 +62,12 @@ type RedisFixedWindowLimit struct {
 	limitKeyName string
 }
 
-func NewRedisFixedWindowLimit(store config.Store, rateLimitPerSec int) (*RedisFixedWindowLimit, error) {
+func NewRedisFixedWindowLimit(store config.Store) (*RedisFixedWindowLimit, error) {
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	if err != nil {
+		return nil, err
+	}
+
 	ctx := context.Background()
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs: []string{store.Parameters["connection"]},
@@ -72,7 +83,7 @@ func NewRedisFixedWindowLimit(store config.Store, rateLimitPerSec int) (*RedisFi
 		return nil, err
 	}
 
-	err := client.Ping(ctx).Err()
+	err = client.Ping(ctx).Err()
 	if err != nil {
 		return nil, err
 	}

@@ -179,10 +179,9 @@ func doServerCmd(cmd *cobra.Command, args []string) {
 		appmetrics.WithMetrics(h.metrics),
 		WithOtelTracerContext(h.tracer),
 		metrics.WithOtelMeterContext(h.meter),
-		ratelimit.WithGlobalRequestRateLimiter(
+		ratelimit.WithRequestRateLimiter(
 			h.meter,
-			cfg.Server.RateLimits.Store,
-			cfg.Server.RateLimits.GlobalReqRateLimitPerSec),
+			cfg.Server.RateLimits.Store),
 		ratelimit.WithConcurrentRequestRateLimiter(h.meter, int32(cfg.Server.RateLimits.ServiceConcurrentRequestAllowance)),
 	}
 	handlerChain := alice.New(mwChain...).Then

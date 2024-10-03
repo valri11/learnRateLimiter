@@ -33,7 +33,7 @@ type LocalAdaptiveTokenBucketLimit struct {
 	UsedTokens     int64
 }
 
-func NewLocalAdaptiveTokenBucketLimit(store config.Store, rateLimitPerSec int) (*LocalAdaptiveTokenBucketLimit, error) {
+func NewLocalAdaptiveTokenBucketLimit(store config.Store) (*LocalAdaptiveTokenBucketLimit, error) {
 
 	// parse tiers
 	tiers := make([]RateLimitTier, 0)
@@ -200,7 +200,7 @@ type RedisAdaptiveTokenBucketLimit struct {
 	limitKeyName string
 }
 
-func NewRedisAdaptiveTokenBucketLimit(store config.Store, rateLimitPerSec int) (*RedisAdaptiveTokenBucketLimit, error) {
+func NewRedisAdaptiveTokenBucketLimit(store config.Store) (*RedisAdaptiveTokenBucketLimit, error) {
 	// parse tiers
 	tiers := make([]RateLimitTier, 0)
 

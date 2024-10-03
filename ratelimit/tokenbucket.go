@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"strconv"
 	"sync"
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
@@ -52,7 +53,11 @@ type RedisTokenBucketLimit struct {
 	limitKeyName string
 }
 
-func NewRedisTokenBucketLimit(store config.Store, rateLimitPerSec int) (*RedisTokenBucketLimit, error) {
+func NewRedisTokenBucketLimit(store config.Store) (*RedisTokenBucketLimit, error) {
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	if err != nil {
+		return nil, err
+	}
 
 	// from rateLimitPerSec
 	// capacity = rateLimitPerSec
@@ -78,7 +83,7 @@ func NewRedisTokenBucketLimit(store config.Store, rateLimitPerSec int) (*RedisTo
 		return nil, err
 	}
 
-	err := client.Ping(ctx).Err()
+	err = client.Ping(ctx).Err()
 	if err != nil {
 		return nil, err
 	}

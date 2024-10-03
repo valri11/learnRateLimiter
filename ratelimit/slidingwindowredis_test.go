@@ -14,17 +14,16 @@ import (
 )
 
 func Test_RedisSlidingWindow_NoBreach(t *testing.T) {
-	limitPerSec := 10
-
 	s := miniredis.RunT(t)
 
 	store := config.Store{
 		Parameters: map[string]string{
-			"connection": s.Addr(),
+			"connection":      s.Addr(),
+			"rateLimitPerSec": "10",
 		},
 	}
 
-	sw, err := NewRedisSlidingWindowLimit(store, limitPerSec)
+	sw, err := NewRedisSlidingWindowLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -61,17 +60,16 @@ func Test_RedisSlidingWindow_NoBreach(t *testing.T) {
 }
 
 func Test_RedisSlidingWindow_Breach(t *testing.T) {
-	limitPerSec := 10
-
 	s := miniredis.RunT(t)
 
 	store := config.Store{
 		Parameters: map[string]string{
-			"connection": s.Addr(),
+			"connection":      s.Addr(),
+			"rateLimitPerSec": "10",
 		},
 	}
 
-	sw, err := NewRedisSlidingWindowLimit(store, limitPerSec)
+	sw, err := NewRedisSlidingWindowLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)

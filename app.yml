@@ -5,7 +5,6 @@ server:
   enableTelemetry: true
   telemetryCollector: localhost:4317
   rateLimits:
-    globalReqRateLimitPerSec: 800
     serviceConcurrentRequestAllowance: 10
     store:
       #type: redisFixedWindow

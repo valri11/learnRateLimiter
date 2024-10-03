@@ -22,8 +22,7 @@ func Test_LocalAdaptiveTokenBucket_CreateLimiter(t *testing.T) {
 		},
 	}
 
-	rateLimitPerSecUnused := 0
-	tb, err := NewLocalAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	tb, err := NewLocalAdaptiveTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	expectedTiers := []RateLimitTier{
@@ -58,8 +57,7 @@ func Test_LocalAdaptiveTokenBucket_NoBreach(t *testing.T) {
 		},
 	}
 
-	rateLimitPerSecUnused := 0
-	lm, err := NewLocalAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	lm, err := NewLocalAdaptiveTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	expectedTiers := []RateLimitTier{
@@ -113,8 +111,7 @@ func Test_LocalAdaptiveTokenBucket_Breach(t *testing.T) {
 		},
 	}
 
-	rateLimitPerSecUnused := 0
-	lm, err := NewLocalAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	lm, err := NewLocalAdaptiveTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -151,8 +148,7 @@ func Test_LocalAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
 		},
 	}
 
-	rateLimitPerSecUnused := 0
-	lm, err := NewLocalAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	lm, err := NewLocalAdaptiveTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -198,8 +194,7 @@ func Test_RedisAdaptiveTokenBucket_NoBreach(t *testing.T) {
 		},
 	}
 
-	rateLimitPerSecUnused := 0
-	lm, err := NewRedisAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	lm, err := NewRedisAdaptiveTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -247,8 +242,7 @@ func Test_RedisAdaptiveTokenBucket_Breach(t *testing.T) {
 		},
 	}
 
-	rateLimitPerSecUnused := 0
-	lm, err := NewRedisAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	lm, err := NewRedisAdaptiveTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -296,8 +290,7 @@ func Test_RedisAdaptiveTokenBucket_BreachAndAdvanceTier(t *testing.T) {
 		},
 	}
 
-	rateLimitPerSecUnused := 0
-	lm, err := NewRedisAdaptiveTokenBucketLimit(store, rateLimitPerSecUnused)
+	lm, err := NewRedisAdaptiveTokenBucketLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)

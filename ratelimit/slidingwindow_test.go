@@ -10,11 +10,17 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	mdlogger "github.com/valri11/go-servicepack/logger"
+	"github.com/valri11/learnRateLimiter/config"
 )
 
 func Test_SlidingWindow_NoBreach(t *testing.T) {
-	limitPerSec := 10
-	sw, err := NewLocalSlidingWindowLimit(limitPerSec)
+	store := config.Store{
+		Parameters: map[string]string{
+			"rateLimitPerSec": "10",
+		},
+	}
+
+	sw, err := NewLocalSlidingWindowLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)
@@ -44,8 +50,13 @@ func Test_SlidingWindow_NoBreach(t *testing.T) {
 }
 
 func Test_SlidingWindow_Breach(t *testing.T) {
-	limitPerSec := 10
-	sw, err := NewLocalSlidingWindowLimit(limitPerSec)
+	store := config.Store{
+		Parameters: map[string]string{
+			"rateLimitPerSec": "10",
+		},
+	}
+
+	sw, err := NewLocalSlidingWindowLimit(store)
 	assert.NoError(t, err)
 
 	logger, err := mdlogger.New(zapcore.DebugLevel, true)

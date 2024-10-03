@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -18,9 +19,14 @@ type LocalSlidingWindowLimit struct {
 	mx       sync.Mutex
 }
 
-func NewLocalSlidingWindowLimit(limit int) (*LocalSlidingWindowLimit, error) {
+func NewLocalSlidingWindowLimit(store config.Store) (*LocalSlidingWindowLimit, error) {
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	if err != nil {
+		return nil, err
+	}
+
 	sw := LocalSlidingWindowLimit{
-		Limit: int32(limit),
+		Limit: int32(rateLimitPerSec),
 	}
 	return &sw, nil
 }
@@ -69,7 +75,12 @@ type RedisSlidingWindowLimit struct {
 	limitKeyName string
 }
 
-func NewRedisSlidingWindowLimit(store config.Store, rateLimitPerSec int) (*RedisSlidingWindowLimit, error) {
+func NewRedisSlidingWindowLimit(store config.Store) (*RedisSlidingWindowLimit, error) {
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["rateLimitPerSec"])
+	if err != nil {
+		return nil, err
+	}
+
 	ctx := context.Background()
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs: []string{store.Parameters["connection"]},
@@ -85,7 +96,7 @@ func NewRedisSlidingWindowLimit(store config.Store, rateLimitPerSec int) (*Redis
 		return nil, err
 	}
 
-	err := client.Ping(ctx).Err()
+	err = client.Ping(ctx).Err()
 	if err != nil {
 		return nil, err
 	}

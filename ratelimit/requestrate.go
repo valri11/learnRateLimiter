@@ -14,29 +14,29 @@ type LimitStore interface {
 	TryPassRequestLimit(ctx context.Context) bool
 }
 
-func NewLimitStore(store config.Store, rateLimitPerSec int) (LimitStore, error) {
+func NewLimitStore(store config.Store) (LimitStore, error) {
 
 	switch store.Type {
 	case "localFixedWindow":
-		return NewLocalFixedWindowLimit(rateLimitPerSec)
+		return NewLocalFixedWindowLimit(store)
 	case "redisFixedWindow":
-		return NewRedisFixedWindowLimit(store, rateLimitPerSec)
+		return NewRedisFixedWindowLimit(store)
 	case "localSlidingWindow":
-		return NewLocalSlidingWindowLimit(rateLimitPerSec)
+		return NewLocalSlidingWindowLimit(store)
 	case "redisSlidingWindow":
-		return NewRedisSlidingWindowLimit(store, rateLimitPerSec)
+		return NewRedisSlidingWindowLimit(store)
 	case "redisTokenBucket":
-		return NewRedisTokenBucketLimit(store, rateLimitPerSec)
+		return NewRedisTokenBucketLimit(store)
 	case "localAdaptiveTokenBucket":
-		return NewLocalAdaptiveTokenBucketLimit(store, rateLimitPerSec)
+		return NewLocalAdaptiveTokenBucketLimit(store)
 	case "redisAdaptiveTokenBucket":
-		return NewRedisAdaptiveTokenBucketLimit(store, rateLimitPerSec)
+		return NewRedisAdaptiveTokenBucketLimit(store)
 	}
 
 	return nil, fmt.Errorf("unknown store type: %s", store.Type)
 }
 
-func WithGlobalRequestRateLimiter(meter metricsApi.Meter, store config.Store, rateLimitPerSec int) func(http.Handler) http.Handler {
+func WithRequestRateLimiter(meter metricsApi.Meter, store config.Store) func(http.Handler) http.Handler {
 
 	rateLimiterDuration, err := meter.Int64Histogram(
 		"ratelimiter_check_duration",
@@ -48,7 +48,7 @@ func WithGlobalRequestRateLimiter(meter metricsApi.Meter, store config.Store, ra
 		panic(err)
 	}
 
-	limitStore, err := NewLimitStore(store, rateLimitPerSec)
+	limitStore, err := NewLimitStore(store)
 	if err != nil {
 		panic(err)
 	}

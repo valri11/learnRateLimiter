@@ -5,7 +5,6 @@ server:
   enableTelemetry: true
   telemetryCollector: localhost:4317
   rateLimits:
-    globalReqRateLimitPerSec: 200
     serviceConcurrentRequestAllowance: 20
     store:
       #type: redisTokenBucket

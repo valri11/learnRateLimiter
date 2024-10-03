@@ -6,7 +6,6 @@ type Store struct {
 }
 
 type RateLimits struct {
-	GlobalReqRateLimitPerSec          int
 	ServiceConcurrentRequestAllowance int
 	Store                             Store
 }
