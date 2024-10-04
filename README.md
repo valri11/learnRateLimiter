@@ -1,8 +1,43 @@
 
-Start in docker compose
+### Learn different rate limiting implementations
+
+Educational project to evaluate distributed rate limiters.
+Implemented:
+ - Fixed Window Limit
+ - Sliding Window Log
+ - Token Bucket
+ - Adaptive Token Bucket
+
+Unit tests:
 ```sh
-docker compose up --build --force-recreate
+go test ./...
 ```
+
+Build app:
+```sh
+go mod tidy
+go build
+```
+
+Start app:
+```sh
+./learnRateLimiter --config=app-dev.yml server
+```
+
+Start infra (redis, grafana, prometheus)
+```sh
+docker compose -f docker-compose-infra.yml up
+```
+
+Run load client:
+```sh
+cd k6
+source ./init_env
+k6 run ./smoke-test.js
+```
+
+Open browser at <http://localhost:3000/> and check request metrics in dashboard.
+
 
 ## Resources
 
