@@ -12,38 +12,69 @@ import (
 	"go.uber.org/zap"
 )
 
+var _ LimitStore = (*LocalTokenBucketLimit)(nil)
+
 type LocalTokenBucketLimit struct {
-	Limit          int32
-	Counter        int32
+	Capacity       int64
+	RefillRateMs   int64
+	Tokens         int64
 	LastRefillTime int64
 	mx             sync.Mutex
 }
 
+func NewLocalTokenBucketLimitFromStore(store config.Store) (*LocalTokenBucketLimit, error) {
+	rateLimitPerSec, err := strconv.Atoi(store.Parameters["ratelimitpersec"])
+	if err != nil {
+		return nil, err
+	}
+	return NewLocalTokenBucketLimit(int32(rateLimitPerSec))
+}
+
 func NewLocalTokenBucketLimit(rateLimitPerSec int32) (*LocalTokenBucketLimit, error) {
 	tb := LocalTokenBucketLimit{
-		Limit: rateLimitPerSec,
+		Capacity:     int64(rateLimitPerSec),
+		RefillRateMs: int64(1000 / rateLimitPerSec),
+		Tokens:       int64(rateLimitPerSec),
 	}
 	return &tb, nil
 }
 
-func (tb *LocalTokenBucketLimit) TryPassRequestLimit(ctx context.Context) bool {
+func (tb *LocalTokenBucketLimit) TryPassRequestLimit(ctx context.Context) RequestLimitAllowance {
 	tb.mx.Lock()
 	defer tb.mx.Unlock()
 
-	tsNowSeconds := getTimeNowFn().Unix()
-
-	// refill interval - 1 sec
-
-	// check if need to refill the bucket
-	timeSinceLastRefill := tsNowSeconds - tb.LastRefillTime
-	if timeSinceLastRefill > 0 {
-		tb.Counter = 0
-		tb.LastRefillTime = tsNowSeconds
+	res := RequestLimitAllowance{
+		Allowed:        false,
+		Limit:          tb.Capacity,
+		LimitWindowSec: 1,
+		Remaining:      0,
 	}
 
-	tb.Counter++
+	nowMs := getTimeNowFn().UnixMilli()
 
-	return tb.Counter < tb.Limit
+	// refill tokens based on elapsed time since last refill
+	elapsedMs := nowMs - tb.LastRefillTime
+	addTokens := elapsedMs / tb.RefillRateMs
+
+	if addTokens > 0 {
+		tb.Tokens = min(tb.Capacity, tb.Tokens+addTokens)
+		if addTokens < tb.Capacity {
+			tb.LastRefillTime += addTokens * tb.RefillRateMs
+		} else {
+			tb.LastRefillTime = nowMs
+		}
+	}
+
+	if tb.Tokens < 1 {
+		return res
+	}
+
+	tb.Tokens--
+
+	res.Allowed = true
+	res.Remaining = tb.Tokens
+
+	return res
 }
 
 type RedisTokenBucketLimit struct {

@@ -33,6 +33,8 @@ func NewLimitStore(store config.Store) (LimitStore, error) {
 		return NewLocalSlidingWindowLimit(store)
 	case "redisSlidingWindow":
 		return NewRedisSlidingWindowLimit(store)
+	case "localTokenBucket":
+		return NewLocalTokenBucketLimitFromStore(store)
 	case "redisTokenBucket":
 		return NewRedisTokenBucketLimit(store)
 	case "localAdaptiveTokenBucket":

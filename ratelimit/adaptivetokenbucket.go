@@ -180,13 +180,11 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 
 	if !allowed {
 		st.RejectCounter++
-		/*
-			logger.
-				With(zap.Int64("req_count", st.UsedTokens)).
-				With(zap.Int64("limit", currentTier.Capacity)).
-				With(zap.Int64("window_reject_count", st.RejectCounter)).
-				Warn("breach rate limit")
-		*/
+		logger.
+			With(zap.Int64("req_count", st.UsedTokens)).
+			With(zap.Int64("limit", currentTier.Capacity)).
+			With(zap.Int64("window_reject_count", st.RejectCounter)).
+			Warn("breach rate limit")
 		return res
 	}
 	st.AllowCounter++
@@ -194,13 +192,11 @@ func (st *LocalAdaptiveTokenBucketLimit) TryPassRequestLimit(ctx context.Context
 	res.Allowed = true
 	res.Remaining = res.Limit - st.UsedTokens
 
-	/*
-		logger.
-			With(zap.Int64("req_count", st.UsedTokens)).
-			With(zap.Int64("limit", currentTier.Capacity)).
-			With(zap.Int64("window_reject_count", st.RejectCounter)).
-			Debug("rate limit check")
-	*/
+	logger.
+		With(zap.Int64("req_count", st.UsedTokens)).
+		With(zap.Int64("limit", currentTier.Capacity)).
+		With(zap.Int64("window_reject_count", st.RejectCounter)).
+		Debug("rate limit check")
 
 	return res
 }
@@ -454,21 +450,17 @@ return {allowed and 1 or 0, usedTokens, currentTierIdx - 1, prevTierIdx - 1, szT
 	res.Limit = st.Tiers[currentTierIdx].Capacity
 
 	if allowed == 0 {
-		/*
-			logger.
-				With(zap.Int64("req_count", req_count)).
-				With(zap.Int64("limit", st.Tiers[currentTierIdx].Capacity)).
-				Warn("breach rate limit")
-		*/
-		return res
-	}
-
-	/*
 		logger.
 			With(zap.Int64("req_count", req_count)).
 			With(zap.Int64("limit", st.Tiers[currentTierIdx].Capacity)).
-			Debug("rate limit check")
-	*/
+			Warn("breach rate limit")
+		return res
+	}
+
+	logger.
+		With(zap.Int64("req_count", req_count)).
+		With(zap.Int64("limit", st.Tiers[currentTierIdx].Capacity)).
+		Debug("rate limit check")
 
 	res.Allowed = true
 	res.Remaining = res.Limit - req_count

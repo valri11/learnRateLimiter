@@ -25,19 +25,17 @@ func WithConcurrentRequestRateLimiter(meter metricsApi.Meter, concurrentRequestA
 			ctx := r.Context()
 			logger := mdlogger.FromContext(ctx)
 
-			if inProgressRequestCounter+1 > concurrentRequestAllowance {
+			current := atomic.AddInt32(&inProgressRequestCounter, 1)
+			if current > concurrentRequestAllowance {
+				atomic.AddInt32(&inProgressRequestCounter, -1)
 				logger.Warn("breached concurrent rate limit")
-
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
 			}
 
-			atomic.AddInt32(&inProgressRequestCounter, 1)
-			concurrentReqMeter.Record(ctx, int64(inProgressRequestCounter))
+			concurrentReqMeter.Record(ctx, int64(current))
 
 			next.ServeHTTP(w, r)
-
-			//logger.With(zap.Int32("concurrent_req", inProgressRequestCounter)).Debug("concurrent requests")
 
 			atomic.AddInt32(&inProgressRequestCounter, -1)
 		})
